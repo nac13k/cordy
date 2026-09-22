@@ -24,5 +24,5 @@ export const PlannedAction = z.discriminatedUnion('kind', [
 export type PlannedAction = z.infer<typeof PlannedAction>;
 
 export type InteractiveElement = { id: string; role: string; name: string; label?: string; placeholder?: string; inputType?: string; valueState: 'empty' | 'filled' | 'secret_or_redacted'; visible: boolean; enabled: boolean; locatorCandidates: Array<{ strategy: z.infer<typeof LocatorStrategy>; value: string }> };
-export type BrowserState = { task: string; page: { url: string; title: string; origin: string }; interactiveElements: InteractiveElement[]; visibleText: string; observationId: string; observedAt: string };
+export type BrowserState = { task: string; page: { url: string; title: string; origin: string }; interactiveElements: InteractiveElement[]; visibleText: string; observationId: string; observedAt: string; recentActions?: Array<{ kind: string; locator?: string; inputKey?: string; status: string }> };
 export type ActionRecord = { action: PlannedAction; status: 'planned' | 'approved' | 'succeeded' | 'failed' | 'blocked'; error?: string };

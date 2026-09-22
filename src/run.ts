@@ -42,7 +42,7 @@ async function execute(page: Page, action: PlannedAction, inputs: Record<string,
     else if (action.kind === 'fill') await locatorFor(page, action.locator).fill(inputs[action.inputKey] ?? (() => { throw new Error(`input faltante: ${action.inputKey}`); })());
     else if (action.kind === 'select') await locatorFor(page, action.locator).selectOption(inputs[action.inputKey]);
     else if (action.kind === 'check') await locatorFor(page, action.locator).setChecked(inputs[action.inputKey] === 'true');
-    else if (action.kind === 'click') await locatorFor(page, action.locator).click();
+    else if (action.kind === 'click') { const beforeUrl = page.url(); await locatorFor(page, action.locator).click(); await Promise.race([page.waitForURL(url => url.toString() !== beforeUrl, { timeout: 5_000 }), page.waitForTimeout(750)]).catch(() => undefined); await page.waitForTimeout(3_000); }
     return { action, status: 'succeeded' };
   } catch (error) { return { action, status: 'failed', error: error instanceof Error ? error.message : 'error desconocido' }; }
 }
@@ -54,10 +54,13 @@ export async function runCordy(options: ParsedOptions, config?: CordyConfig) {
   try {
     await page.goto(startUrl); const jev = new JevClient({ apiKey: config ? process.env[config.jev.apiKeyEnv] : undefined, endpoint: config?.jev.endpoint, verbose: options.verbose });
     for (let step = 0; step < options.maxSteps; step += 1) {
-      const state = await observePage(page, task, `obs_${step + 1}`);
+      const recentActions = actions.slice(-5).map(record => ({ kind: record.action.kind, locator: 'locator' in record.action ? `${record.action.locator.strategy}:${record.action.locator.value}` : undefined, inputKey: 'inputKey' in record.action ? record.action.inputKey : undefined, status: record.status }));
+      const state = await observePage(page, task, `obs_${step + 1}`, recentActions);
       const action = await jev.nextAction(state, inputs); const record = await execute(page, action, inputs, options.approve, options.dryRun); actions.push(record);
       if (options.verbose) console.error(JSON.stringify({ step: step + 1, action: record }, null, 2));
       if (record.status !== 'succeeded') break;
+      const completedInputKeys = new Set(actions.filter(item => item.status === 'succeeded' && item.action.kind === 'fill').map(item => item.action.kind === 'fill' ? item.action.inputKey : undefined).filter((key): key is string => Boolean(key)));
+      if (Object.keys(inputs).length > 0 && Object.keys(inputs).every(key => completedInputKeys.has(key))) break;
     }
     const result = { task, startUrl, headed: options.headed, dryRun: options.dryRun, actions };
     if (options.output) await writeFile(options.output, generateTypeScript(actions, startUrl), 'utf8');

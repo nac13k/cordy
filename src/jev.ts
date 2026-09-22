@@ -18,10 +18,10 @@ export class JevClient {
   available() { return Boolean(this.apiKey); }
   async nextAction(state: BrowserState, inputs: Record<string, string>): Promise<PlannedAction> {
     if (!this.apiKey) throw new Error('Jev no está configurado: define JEV_API_KEY');
-    const candidates = state.interactiveElements.flatMap(element => element.locatorCandidates.map(locator => ({ elementId: element.id, ...locator })));
+    const candidates = state.interactiveElements.flatMap(element => element.locatorCandidates.map(locator => ({ elementId: element.id, role: element.role, valueState: element.valueState, ...locator })));
     const payload = { model: 'jev-latest', state: { ...state, inputs: Object.fromEntries(Object.keys(inputs).map(key => [key, { available: true, type: 'provided_input' }])) }, questions: {
-      action: { type: 'choice', instructions: 'Choose the single next allowed browser action. Never invent an element or code.', criteria: { fill: 'Fill a provided input into a matching field.', click: 'Click a safe non-submitting control.', select: 'Select a provided value.', check: 'Set a checkbox from a provided boolean-like input.', wait: 'Wait for the page to change.', needs_review: 'The action is ambiguous, unavailable, or high impact.' } },
-      target: { type: 'choice', instructions: 'Choose the target candidate id for the action, or needs_review.', criteria: Object.fromEntries(candidates.map(candidate => [candidate.elementId, `${candidate.strategy}:${candidate.value}`]).concat([['needs_review', 'No safe target']])) },
+      action: { type: 'choice', instructions: 'Choose the single next allowed browser action. For fill/select/check, the target must be an editable form control, never a button. Never invent an element or code.', criteria: { fill: 'Fill a provided input into a visible textbox, combobox, or editable control.', click: 'Click a safe non-submitting control.', select: 'Select a provided value in a visible combobox.', check: 'Set a visible checkbox from a provided boolean-like input.', wait: 'Wait for the page to change.', needs_review: 'The action is ambiguous, unavailable, or high impact.' } },
+      target: { type: 'choice', instructions: 'Choose the target candidate id for the action, or needs_review.', criteria: Object.fromEntries(candidates.map(candidate => [candidate.elementId, `${candidate.strategy}:${candidate.value} (role=${candidate.role}, state=${candidate.valueState})`]).concat([['needs_review', 'No safe target']])) },
       input_key: { type: 'choice', instructions: 'Choose the provided input key required by the action, or none.', criteria: Object.fromEntries(Object.keys(inputs).map(key => [key, `Provided input ${key}`]).concat([['none', 'No input']])) },
     } };
     this.trace({ event: 'request', endpoint: this.endpoint, model: 'jev-latest', observationId: state.observationId, page: safePage(state.page.url), inputKeys: Object.keys(inputs), candidateCount: candidates.length, questionIds: ['action', 'target', 'input_key'] });
@@ -33,16 +33,25 @@ export class JevClient {
     this.trace({ event: 'response', endpoint: this.endpoint, httpStatus: response.status, model: body.model, answerKeys: Object.keys(body.answers ?? {}), answers: summarizeAnswers(body.answers ?? {}), usage: body.usage && { inputTokens: body.usage.input_tokens, outputTokens: body.usage.output_tokens } });
     const action = body.answers?.action?.choice;
     const target = body.answers?.target?.choice;
-    const inputKey = body.answers?.input_key?.choice;
+    let inputKey = body.answers?.input_key?.choice;
     if (!action || action === 'needs_review' || !target || target === 'needs_review') return { kind: 'needs_review', reason: 'Jev no identificó una acción y objetivo seguros' };
-    const element = state.interactiveElements.find(item => item.id === target);
-    const candidate = element?.locatorCandidates[0];
+    let element = state.interactiveElements.find(item => item.id === target);
+    let candidate = element?.locatorCandidates[0];
+    if (action === 'fill' && inputKey && inputKey !== 'none' && (!element || !['textbox', 'combobox'].includes(element.role) || element.valueState === 'filled')) {
+      const inputKeys = [inputKey, ...Object.keys(inputs).filter(key => key !== inputKey)].filter(key => !state.recentActions?.some(recent => recent.kind === 'fill' && recent.inputKey === key && recent.status === 'succeeded'));
+      for (const key of inputKeys) {
+        const keyParts = key.toLowerCase().split(/[^a-z0-9]+/).filter(part => part.length > 2);
+        const matches = state.interactiveElements.filter(item => ['textbox', 'combobox'].includes(item.role) && item.locatorCandidates.some(itemCandidate => { const candidateText = itemCandidate.value.toLowerCase(); return keyParts.length > 0 && keyParts.every(part => candidateText.includes(part)); }));
+        if (matches.length === 1) { inputKey = key; element = matches[0]; candidate = element.locatorCandidates[0]; break; }
+      }
+    }
     if (!element || !candidate) return { kind: 'needs_review', reason: 'El objetivo propuesto no existe en la observación actual' };
+    if (['fill', 'select', 'check'].includes(action) && !['textbox', 'combobox', 'checkbox', 'radio'].includes(element.role)) return { kind: 'needs_review', reason: `Jev propuso ${action} sobre un elemento role=${element.role}` };
     const locator = { strategy: candidate.strategy, value: candidate.value, confidence: 0.5, evidenceId: state.observationId } as const;
     if (action === 'fill' && inputKey && inputKey !== 'none') return PlannedAction.parse({ kind: 'fill', locator, inputKey, reason: 'Jev seleccionó el campo y el input proporcionado' });
     if (action === 'select' && inputKey && inputKey !== 'none') return PlannedAction.parse({ kind: 'select', locator, inputKey, reason: 'Jev seleccionó el selector y el valor proporcionado' });
     if (action === 'check' && inputKey && inputKey !== 'none') return PlannedAction.parse({ kind: 'check', locator, inputKey, reason: 'Jev seleccionó el checkbox y el input proporcionado' });
-    if (action === 'click') return PlannedAction.parse({ kind: 'click', locator, reason: 'Jev seleccionó un control seguro', highImpact: false });
+    if (action === 'click') { const highImpact = /submit|enviar|simular|continuar|confirmar|calcular|solicitar/i.test(element.name); return PlannedAction.parse({ kind: 'click', locator, reason: highImpact ? 'Jev seleccionó un control de impacto; requiere aprobación' : 'Jev seleccionó un control seguro', highImpact }); }
     if (action === 'wait') return { kind: 'wait', reason: 'Jev indicó que debe observarse un cambio' };
     return { kind: 'needs_review', reason: 'La respuesta de Jev no coincide con una acción permitida' };
   }
