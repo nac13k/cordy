@@ -48,6 +48,11 @@ export class JevClient {
         if (matches.length === 1) { inputKey = key; element = matches[0]; candidate = element.locatorCandidates[0]; break; }
       }
     }
+    if (action === 'fill' && element?.role === 'button' && /simula|secci[oó]n|entrando|entrar/i.test(state.task)) {
+      const navigationButtons = state.interactiveElements.filter(item => item.role === 'button' && /simula|iniciar|comenzar/i.test(item.name));
+      const navigationButton = navigationButtons.find(item => item.locatorCandidates.some(itemCandidate => /cotizador[_-]iniciar/i.test(itemCandidate.value))) ?? (navigationButtons.length === 1 ? navigationButtons[0] : undefined);
+      if (navigationButton) { element = navigationButton; candidate = element.locatorCandidates[0]; return PlannedAction.parse({ kind: 'click', locator: { strategy: candidate.strategy, value: candidate.value, confidence: 0.5, evidenceId: state.observationId }, reason: 'Cordy corrigió una propuesta de fill sobre el botón de entrada', highImpact: false }); }
+    }
     if (!element || !candidate) return { kind: 'needs_review', reason: 'El objetivo propuesto no existe en la observación actual' };
     if (['fill', 'select', 'check'].includes(action) && !['textbox', 'combobox', 'checkbox', 'radio'].includes(element.role)) return { kind: 'needs_review', reason: `Jev propuso ${action} sobre un elemento role=${element.role}` };
     const locator = { strategy: candidate.strategy, value: candidate.value, confidence: 0.5, evidenceId: state.observationId } as const;

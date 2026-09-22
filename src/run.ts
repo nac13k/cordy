@@ -29,10 +29,11 @@ export function generateTypeScript(actions: ActionRecord[], startUrl?: string, o
     if (action.kind === 'click') lines.push(`  await page.${locatorExpression(action.locator)}.click();`);
     if (action.kind === 'wait') lines.push('  await page.waitForLoadState(\'domcontentloaded\');');
   }
-  if (outputKind === 'test') { for (const text of expectVisible) lines.push(`  await expect(page.getByText(${JSON.stringify(text)}).first()).toBeVisible();`); for (const button of expectButtons) lines.push(`  await expect(page.getByRole('button', { name: new RegExp(${JSON.stringify(button)}, 'i') })).toBeVisible();`); for (const url of expectUrl) lines.push(`  await expect(page).toHaveURL(${JSON.stringify(url)});`); lines.push('});', '', '// Inputs are intentionally external and must be provided by the generated consumer.'); }
+  if (outputKind === 'test') { for (const text of expectVisible) lines.push(`  await expect(page.getByText(new RegExp(${JSON.stringify(text)}, 'i')).first()).toBeVisible();`); for (const button of expectButtons) lines.push(`  await expect(page.getByRole('button', { name: new RegExp(${JSON.stringify(button)}, 'i') })).toBeVisible();`); for (const url of expectUrl) lines.push(`  await expect(page).toHaveURL(${JSON.stringify(url)});`); lines.push('});', '', '// Inputs are intentionally external and must be provided by the generated consumer.'); }
   else { for (const text of expectVisible) lines.push(`  await page.getByText(${JSON.stringify(text)}).first().waitFor({ state: 'visible' });`); for (const button of expectButtons) lines.push(`  await page.getByRole('button', { name: new RegExp(${JSON.stringify(button)}, 'i') }).waitFor({ state: 'visible' });`); for (const url of expectUrl) lines.push(`  await page.waitForURL(${JSON.stringify(url)});`); lines.push('  await browser.close();', '})();'); }
   return lines.join('\n');
 }
+function escapeRegex(value: string) { return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 function locatorExpression(locator: { strategy: string; value: string }) { const value = JSON.stringify(locator.value); if (locator.strategy === 'getByLabel') return `getByLabel(${value})`; if (locator.strategy === 'getByPlaceholder') return `getByPlaceholder(${value})`; if (locator.strategy === 'getByText') return `getByText(${value})`; if (locator.strategy === 'testId') return `getByTestId(${value})`; if (locator.strategy === 'getByRole') { const [role, ...name] = locator.value.split(':'); return `getByRole(${JSON.stringify(role)}, { name: ${JSON.stringify(name.join(':'))} })`; } return `locator(${value})`; }
 
 async function execute(page: Page, action: PlannedAction, inputs: Record<string, string>, approve: boolean, dryRun: boolean): Promise<ActionRecord> {
@@ -64,7 +65,7 @@ export async function runCordy(options: ParsedOptions, config?: CordyConfig) {
       if (record.action.kind === 'click' && record.action.highImpact) break;
     }
     const expectations = options.dryRun ? [...expectVisible.map(text => ({ kind: 'visible', expected: text, status: 'planned' as const })), ...expectButtons.map(button => ({ kind: 'button', expected: button, status: 'planned' as const })), ...options.expectUrl.map(url => ({ kind: 'url', expected: url, status: 'planned' as const }))] : [
-      ...await Promise.all(expectVisible.map(async text => ({ kind: 'visible' as const, expected: text, status: await page.getByText(text).first().isVisible().catch(() => false) ? 'passed' as const : 'failed' as const }))),
+      ...await Promise.all(expectVisible.map(async text => ({ kind: 'visible' as const, expected: text, status: await page.getByText(new RegExp(escapeRegex(text), 'i')).first().isVisible().catch(() => false) ? 'passed' as const : 'failed' as const }))),
       ...await Promise.all(expectButtons.map(async button => ({ kind: 'button' as const, expected: button, status: await page.getByRole('button', { name: new RegExp(button, 'i') }).first().isVisible().catch(() => false) ? 'passed' as const : 'failed' as const }))),
       ...options.expectUrl.map(url => ({ kind: 'url' as const, expected: url, status: page.url() === url ? 'passed' as const : 'failed' as const })),
     ];
