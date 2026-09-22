@@ -4,9 +4,15 @@ import { generateTypeScript } from '../src/run.js';
 describe('generated input sources', () => {
   it('embeds inline inputs as a fixed input constant', () => {
     const source = generateTypeScript([], 'https://example.test', 'test', [], [], [], { kind: 'inline', values: { email: 'ana@example.test' } });
-    expect(source).toContain('const input = {');
+    expect(source).toContain('const input = resolveInputRecord({');
     expect(source).toContain('ana@example.test');
     expect(source).not.toContain('readFileSync');
+  });
+
+  it('preserves inline templates for every generated-test execution', () => {
+    const source = generateTypeScript([], 'https://example.test', 'test', [], [], [], { kind: 'inline', values: { email: 'correo+${timestamp()}@example.com' } });
+    expect(source).toContain('correo+${timestamp()}@example.com');
+    expect(source).toContain('const input = resolveInputRecord');
   });
 
   it('reads file inputs at test execution time', () => {

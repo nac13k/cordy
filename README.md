@@ -232,8 +232,8 @@ Las plantillas se resuelven en memoria y los valores resultantes siguen sin envi
 
 Los archivos generados con `--output` preservan la fuente declarada:
 
-- con `--input key=value`, `const input` contiene esos valores fijos dentro del código generado;
-- con `--input ./inputs.json`, `const input` lee y resuelve el JSON cuando se ejecuta la prueba.
+- con `--input key=value`, `const input` contiene la plantilla original dentro del código y la evalúa al comenzar cada ejecución;
+- con `--input ./inputs.json`, `const input` lee el JSON y evalúa sus plantillas al comenzar cada ejecución.
 
 Los campos con nombres sensibles como `password`, `token`, `secret` o `api_key` se mantienen como referencias a variables de entorno para no incrustar credenciales en el código.
 

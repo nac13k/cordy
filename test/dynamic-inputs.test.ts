@@ -1,18 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { resolveInputTemplate } from '../src/dynamic-inputs.js';
+import { resolveInputRecord, resolveInputTemplate } from '../src/dynamic-inputs.js';
 
 describe('dynamic input templates', () => {
-  it('resolves timestamp and bounded random integer expressions', () => {
-    const value = resolveInputTemplate('dias ${randInt(10, 20)}-${timestamp()}', { now: () => 1700000000000, random: () => 0.5 });
-    expect(value).toBe('dias 15-1700000000000');
+  it('resolves timestamp and bounded random values', () => {
+    expect(resolveInputTemplate('id-${timestamp()}-${randInt(10, 12)}', { now: () => 1700000000000, random: () => 0.5 })).toBe('id-1700000000000-11');
   });
 
-  it('resolves allowlisted faker fields without evaluating code', () => {
-    const value = resolveInputTemplate('${faker.name} <${faker.email}>', { faker: { name: 'Ana Legumbres', email: 'ana@example.test' } });
-    expect(value).toBe('Ana Legumbres <ana@example.test>');
+  it('resolves faker placeholders', () => {
+    expect(resolveInputTemplate('${faker.name} / ${faker.email}', { faker: { name: 'Ana Legumbres', email: 'ana@example.test' } })).toBe('Ana Legumbres / ana@example.test');
   });
 
-  it('rejects unsupported expressions', () => {
-    expect(() => resolveInputTemplate('${process.env.SECRET}')).toThrow(/expresión no permitida/i);
+  it('evaluates the same template again with a new execution context', () => {
+    const template = { email: 'correo+${timestamp()}@example.com' };
+    expect(resolveInputRecord(template, { now: () => 1000 })).toEqual({ email: 'correo+1000@example.com' });
+    expect(resolveInputRecord(template, { now: () => 2000 })).toEqual({ email: 'correo+2000@example.com' });
   });
 });

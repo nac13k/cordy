@@ -86,7 +86,7 @@ npx cordy \
   --input referencia='dias ${randInt(10, 99)}'
 ```
 
-Las plantillas se resuelven una vez por ejecución, en memoria. No se aceptan `eval`, `process.env`, imports, llamadas arbitrarias ni acceso a funciones fuera de la allowlist. Las salidas generadas conservan la fuente de inputs: los valores `key=value` quedan fijos en `const input`, mientras que un archivo se lee con `readFileSync` al ejecutar la prueba. Las claves sensibles no se incrustan y se mantienen como variables de entorno.
+Las plantillas se resuelven una vez por ejecución, en memoria. No se aceptan `eval`, `process.env`, imports, llamadas arbitrarias ni acceso a funciones fuera de la allowlist. Las salidas generadas conservan la fuente de inputs: los valores `key=value` quedan en `const input` y sus plantillas se evalúan al inicio de cada ejecución, mientras que un archivo se lee con `readFileSync` al ejecutar la prueba. Las claves sensibles no se incrustan y se mantienen como variables de entorno.
 
 ## 4. Flujo completo con expectativas inferidas
 ```bash

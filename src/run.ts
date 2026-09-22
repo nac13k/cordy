@@ -8,11 +8,12 @@ import { observePage } from './observe.js';
 import type { ActionRecord, PlannedAction } from './domain.js';
 import { inferExpectations } from './expectations.js';
 import { createWorkflowPlan, type WorkflowPlan, type WorkflowStep } from './workflow-plan.js';
+import { resolveInputRecord } from './dynamic-inputs.js';
 
 export type GeneratedInputSource = { kind: 'inline'; values: Record<string, string> } | { kind: 'file'; path: string };
 
 function isSensitiveInputKey(key: string) { return /password|passwd|secret|token|api[_-]?key|authorization|cookie/i.test(key); }
-function inlineInputSource(values: Record<string, string>) { return `{${Object.entries(values).map(([key, value]) => `${JSON.stringify(key)}:${isSensitiveInputKey(key) ? `process.env[${JSON.stringify(key)}] ?? ''` : JSON.stringify(value)}`).join(',')}}`; }
+function inlineInputSource(values: Record<string, string>) { return `resolveInputRecord({${Object.entries(values).map(([key, value]) => `${JSON.stringify(key)}:${isSensitiveInputKey(key) ? `process.env[${JSON.stringify(key)}] ?? ''` : JSON.stringify(value)}`).join(',')}})`; }
 function locatorFor(page: Page, locator: { strategy: string; value: string }) {  if (locator.strategy === 'getByLabel') return page.getByLabel(locator.value);
   if (locator.strategy === 'getByPlaceholder') return page.getByPlaceholder(locator.value);
   if (locator.strategy === 'getByText') return page.getByText(locator.value);
@@ -90,7 +91,7 @@ async function execute(page: Page, action: PlannedAction, inputs: Record<string,
 }
 
 export async function runCordy(options: ParsedOptions, config?: CordyConfig) {
-  const task = loadPrompt(options); const inputs = loadInputs(options); const startUrl = options.startUrl; const plan = createWorkflowPlan(task, inputs); const inferred = inferExpectations(task); const expectVisible = [...options.expectVisible, ...inferred.visible]; const expectButtons = [...options.expectButtons, ...inferred.buttons];
+  const task = loadPrompt(options); const inputTemplates = loadInputs(options); const inputs = resolveInputRecord(inputTemplates); const startUrl = options.startUrl; const plan = createWorkflowPlan(task, inputs); const inferred = inferExpectations(task); const expectVisible = [...options.expectVisible, ...inferred.visible]; const expectButtons = [...options.expectButtons, ...inferred.buttons];
   if (!startUrl) throw new Error('define --start-url para abrir el navegador');
   const browser: Browser = await chromium.launch({ headless: !options.headed }); const page = await browser.newPage(); const actions: ActionRecord[] = [];
   try {
@@ -115,7 +116,7 @@ export async function runCordy(options: ParsedOptions, config?: CordyConfig) {
       ...options.expectUrl.map(url => ({ kind: 'url' as const, expected: url, status: page.url() === url ? 'passed' as const : 'failed' as const })),
     ];
     const result = { task, startUrl, headed: options.headed, dryRun: options.dryRun, plan, actions, expectations };
-    if (options.output) await writeFile(options.output, generateTypeScript(actions, startUrl, options.outputKind, expectVisible, expectButtons, options.expectUrl, options.inputFile ? { kind: 'file', path: options.inputFile } : { kind: 'inline', values: inputs }), 'utf8');
+    if (options.output) await writeFile(options.output, generateTypeScript(actions, startUrl, options.outputKind, expectVisible, expectButtons, options.expectUrl, options.inputFile ? { kind: 'file', path: options.inputFile } : { kind: 'inline', values: inputTemplates }), 'utf8');
     return result;
   } finally { await browser.close(); }
 }
