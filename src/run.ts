@@ -15,8 +15,9 @@ function locatorFor(page: Page, locator: { strategy: string; value: string }) {
   return page.locator(locator.value);
 }
 
-export function generateTypeScript(actions: ActionRecord[]) {
-  const lines = ['import { expect, test } from \'@playwright/test\';', '', "test('cordy automation', async ({ page }) => {"]; 
+export function generateTypeScript(actions: ActionRecord[], startUrl?: string) {
+  const lines = ['import { expect, test } from \'@playwright/test\';', '', "test('cordy automation', async ({ page }) => {", '  const inputs = process.env as Record<string, string>;'];
+  if (startUrl) lines.push(`  await page.goto(${JSON.stringify(startUrl)});`);
   for (const record of actions.filter(item => item.status === 'succeeded')) {
     const action = record.action;
     if (action.kind === 'goto') lines.push(`  await page.goto(${JSON.stringify(action.url)});`);
@@ -58,7 +59,7 @@ export async function runCordy(options: ParsedOptions) {
       if (record.status !== 'succeeded') break;
     }
     const result = { task, startUrl, headed: options.headed, dryRun: options.dryRun, actions };
-    if (options.output) await writeFile(options.output, generateTypeScript(actions), 'utf8');
+    if (options.output) await writeFile(options.output, generateTypeScript(actions, startUrl), 'utf8');
     return result;
   } finally { await browser.close(); }
 }
