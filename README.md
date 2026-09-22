@@ -30,6 +30,40 @@ node dist/cli.js \
 
 The runtime is intentionally ephemeral: task state, observations, actions, approvals, and results exist only for one invocation. No database is used. Generated TypeScript is written only when `--output` is provided.
 
+## Configuration
+
+Create a local TOML configuration template:
+
+```bash
+node dist/cli.js init
+```
+
+Or YAML:
+
+```bash
+node dist/cli.js init --format yaml
+```
+
+The generated file contains a reference to the Jev credential, not the credential itself:
+
+```toml
+[jev]
+api_key_env = "JEV_API_KEY"
+
+[browser]
+headed = false
+max_steps = 20
+```
+
+Set the key only in the process environment:
+
+```bash
+export JEV_API_KEY='[REDACTED]'
+node dist/cli.js --config ./cordy.config.toml "Completa el formulario" --start-url http://127.0.0.1:3000
+```
+
+Cordy also discovers `cordy.config.toml`, `cordy.config.yaml`, or `cordy.config.yml` in the current directory. The configuration file is not a secret store and must not contain the raw key.
+
 ## Safety boundary
 
 - Jev receives a bounded, redacted browser state and typed questions.

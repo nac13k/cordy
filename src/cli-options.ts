@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const ParsedOptions = z.object({
-  task: z.string().optional(), promptFile: z.string().optional(), inputFile: z.string().optional(), inputs: z.record(z.string(), z.string()),
+  task: z.string().optional(), promptFile: z.string().optional(), inputFile: z.string().optional(), configFile: z.string().optional(), inputs: z.record(z.string(), z.string()),
   headed: z.boolean(), dryRun: z.boolean(), output: z.string().optional(), startUrl: z.string().optional(), origin: z.string().optional(), maxSteps: z.number(), json: z.boolean(), verbose: z.boolean(), approve: z.boolean(),
 });
 export type ParsedOptions = z.infer<typeof ParsedOptions>;
@@ -27,6 +27,7 @@ export function parseCliArgs(args: string[]): ParsedOptions {
     else if (arg === '--verbose') options.verbose = true;
     else if (arg === '--approve') options.approve = true;
     else if (arg === '--prompt-file') options.promptFile = next();
+    else if (arg === '--config') options.configFile = next();
     else if (arg === '--output') options.output = next();
     else if (arg === '--start-url') options.startUrl = next();
     else if (arg === '--origin') options.origin = next();

@@ -3,6 +3,7 @@ import { writeFile } from 'node:fs/promises';
 import type { ParsedOptions } from './cli-options.js';
 import { loadInputs, loadPrompt } from './inputs.js';
 import { JevClient } from './jev.js';
+import type { CordyConfig } from './config.js';
 import { observePage } from './observe.js';
 import type { ActionRecord, PlannedAction } from './domain.js';
 
@@ -46,12 +47,12 @@ async function execute(page: Page, action: PlannedAction, inputs: Record<string,
   } catch (error) { return { action, status: 'failed', error: error instanceof Error ? error.message : 'error desconocido' }; }
 }
 
-export async function runCordy(options: ParsedOptions) {
+export async function runCordy(options: ParsedOptions, config?: CordyConfig) {
   const task = loadPrompt(options); const inputs = loadInputs(options); const startUrl = options.startUrl;
   if (!startUrl) throw new Error('define --start-url para abrir el navegador');
   const browser: Browser = await chromium.launch({ headless: !options.headed }); const page = await browser.newPage(); const actions: ActionRecord[] = [];
   try {
-    await page.goto(startUrl); const jev = new JevClient();
+    await page.goto(startUrl); const jev = new JevClient({ apiKey: config ? process.env[config.jev.apiKeyEnv] : undefined, endpoint: config?.jev.endpoint });
     for (let step = 0; step < options.maxSteps; step += 1) {
       const state = await observePage(page, task, `obs_${step + 1}`);
       const action = await jev.nextAction(state, inputs); const record = await execute(page, action, inputs, options.approve, options.dryRun); actions.push(record);
