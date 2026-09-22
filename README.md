@@ -64,6 +64,31 @@ node dist/cli.js --config ./cordy.config.toml "Completa el formulario" --start-u
 
 Cordy also discovers `cordy.config.toml`, `cordy.config.yaml`, or `cordy.config.yml` in the current directory. The configuration file is not a secret store and must not contain the raw key.
 
+## Verbose Jev tracing
+
+Use `--verbose` to inspect the interaction with Jev:
+
+```bash
+node dist/cli.js \
+  "Completa el formulario" \
+  --start-url http://127.0.0.1:3000 \
+  --input email=ana@example.com \
+  --verbose
+```
+
+Verbose output is written to stderr and includes only safe diagnostics:
+
+- request number and observation id;
+- endpoint and model;
+- page origin/path without query strings or fragments;
+- input names, never input values;
+- candidate and question counts;
+- HTTP status;
+- typed answer choices and usage tokens;
+- selected action and execution result.
+
+It never prints the Jev credential, authorization header, raw input values, cookies, or full page text.
+
 ## Safety boundary
 
 - Jev receives a bounded, redacted browser state and typed questions.

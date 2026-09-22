@@ -52,7 +52,7 @@ export async function runCordy(options: ParsedOptions, config?: CordyConfig) {
   if (!startUrl) throw new Error('define --start-url para abrir el navegador');
   const browser: Browser = await chromium.launch({ headless: !options.headed }); const page = await browser.newPage(); const actions: ActionRecord[] = [];
   try {
-    await page.goto(startUrl); const jev = new JevClient({ apiKey: config ? process.env[config.jev.apiKeyEnv] : undefined, endpoint: config?.jev.endpoint });
+    await page.goto(startUrl); const jev = new JevClient({ apiKey: config ? process.env[config.jev.apiKeyEnv] : undefined, endpoint: config?.jev.endpoint, verbose: options.verbose });
     for (let step = 0; step < options.maxSteps; step += 1) {
       const state = await observePage(page, task, `obs_${step + 1}`);
       const action = await jev.nextAction(state, inputs); const record = await execute(page, action, inputs, options.approve, options.dryRun); actions.push(record);

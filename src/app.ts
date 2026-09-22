@@ -20,7 +20,7 @@ Opciones:
   --output <file>                 Generar TypeScript
   --max-steps <n>                 Máximo de acciones (default: 20)
   --json                          Resultado JSON
-  --verbose                       Diagnóstico en stderr
+  --verbose                       Diagnóstico seguro de cada interacción con Jev
   --help                          Mostrar ayuda`;
 
 export async function main(args = process.argv.slice(2)) {
