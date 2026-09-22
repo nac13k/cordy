@@ -16,8 +16,8 @@ function locatorFor(page: Page, locator: { strategy: string; value: string }) {
   return page.locator(locator.value);
 }
 
-export function generateTypeScript(actions: ActionRecord[], startUrl?: string) {
-  const lines = ['import { expect, test } from \'@playwright/test\';', '', "test('cordy automation', async ({ page }) => {", '  const inputs = process.env as Record<string, string>;'];
+export function generateTypeScript(actions: ActionRecord[], startUrl?: string, outputKind: 'test' | 'automation' = 'test', expectVisible: string[] = [], expectUrl: string[] = []) {
+  const lines = outputKind === 'test' ? ['import { expect, test } from \'@playwright/test\';', '', "test('cordy automation', async ({ page }) => {", '  const inputs = process.env as Record<string, string>;'] : ['import { chromium } from \'playwright\';', '', '(async () => {', '  const browser = await chromium.launch({ headless: false });', '  const page = await browser.newPage();'];
   if (startUrl) lines.push(`  await page.goto(${JSON.stringify(startUrl)});`);
   for (const record of actions.filter(item => item.status === 'succeeded')) {
     const action = record.action;
@@ -28,7 +28,8 @@ export function generateTypeScript(actions: ActionRecord[], startUrl?: string) {
     if (action.kind === 'click') lines.push(`  await page.${locatorExpression(action.locator)}.click();`);
     if (action.kind === 'wait') lines.push('  await page.waitForLoadState(\'domcontentloaded\');');
   }
-  lines.push('});', '', '// Inputs are intentionally external and must be provided by the generated consumer.');
+  if (outputKind === 'test') { for (const text of expectVisible) lines.push(`  await expect(page.getByText(${JSON.stringify(text)}).first()).toBeVisible();`); for (const url of expectUrl) lines.push(`  await expect(page).toHaveURL(${JSON.stringify(url)});`); lines.push('});', '', '// Inputs are intentionally external and must be provided by the generated consumer.'); }
+  else { for (const text of expectVisible) lines.push(`  await page.getByText(${JSON.stringify(text)}).first().waitFor({ state: 'visible' });`); for (const url of expectUrl) lines.push(`  await page.waitForURL(${JSON.stringify(url)});`); lines.push('  await browser.close();', '})();'); }
   return lines.join('\n');
 }
 function locatorExpression(locator: { strategy: string; value: string }) { const value = JSON.stringify(locator.value); if (locator.strategy === 'getByLabel') return `getByLabel(${value})`; if (locator.strategy === 'getByPlaceholder') return `getByPlaceholder(${value})`; if (locator.strategy === 'getByText') return `getByText(${value})`; if (locator.strategy === 'testId') return `getByTestId(${value})`; if (locator.strategy === 'getByRole') { const [role, ...name] = locator.value.split(':'); return `getByRole(${JSON.stringify(role)}, { name: ${JSON.stringify(name.join(':'))} })`; } return `locator(${value})`; }
@@ -61,8 +62,12 @@ export async function runCordy(options: ParsedOptions, config?: CordyConfig) {
       if (record.status !== 'succeeded') break;
       if (record.action.kind === 'click' && record.action.highImpact) break;
     }
-    const result = { task, startUrl, headed: options.headed, dryRun: options.dryRun, actions };
-    if (options.output) await writeFile(options.output, generateTypeScript(actions, startUrl), 'utf8');
+    const expectations = options.dryRun ? [...options.expectVisible.map(text => ({ kind: 'visible', expected: text, status: 'planned' as const })), ...options.expectUrl.map(url => ({ kind: 'url', expected: url, status: 'planned' as const }))] : [
+      ...await Promise.all(options.expectVisible.map(async text => ({ kind: 'visible' as const, expected: text, status: await page.getByText(text).first().isVisible().catch(() => false) ? 'passed' as const : 'failed' as const }))),
+      ...options.expectUrl.map(url => ({ kind: 'url' as const, expected: url, status: page.url() === url ? 'passed' as const : 'failed' as const })),
+    ];
+    const result = { task, startUrl, headed: options.headed, dryRun: options.dryRun, actions, expectations };
+    if (options.output) await writeFile(options.output, generateTypeScript(actions, startUrl, options.outputKind, options.expectVisible, options.expectUrl), 'utf8');
     return result;
   } finally { await browser.close(); }
 }

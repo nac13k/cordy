@@ -17,7 +17,10 @@ Opciones:
   --headless                      Ejecutar sin UI (default)
   --dry-run                       Planificar sin ejecutar
   --approve                       Aprobar acciones de impacto
-  --output <file>                 Generar TypeScript
+  --output <file>                 Generar TypeScript/TSX
+  --output-kind <test|automation> Generar asserts o solo automatización
+  --expect-visible <text>          Assert repetible de texto visible
+  --expect-url <url>               Assert repetible de URL
   --max-steps <n>                 Máximo de acciones (default: 20)
   --json                          Resultado JSON
   --verbose                       Diagnóstico seguro de cada interacción con Jev
@@ -34,7 +37,7 @@ export async function main(args = process.argv.slice(2)) {
     const options = parseCliArgs(args); const configPath = findConfig(process.cwd(), options.configFile); const config: CordyConfig = configPath ? await loadConfig(configPath) : { jev: { apiKeyEnv: 'JEV_API_KEY' }, browser: { headed: false, maxSteps: 20 } };
     const effective = { ...options, headed: options.headed || config.browser.headed, startUrl: options.startUrl ?? config.browser.startUrl, origin: options.origin ?? config.browser.origin, maxSteps: options.maxSteps === 20 ? config.browser.maxSteps : options.maxSteps };
     const result = await runCordy(effective, config);
-    if (options.json) console.log(JSON.stringify(result, null, 2)); else console.log(`Cordy terminó con ${result.actions.length} acción(es): ${result.actions.map(action => action.status).join(', ')}`);
-    return result.actions.some(action => action.status === 'failed') ? 1 : 0;
+    if (options.json) console.log(JSON.stringify(result, null, 2)); else console.log(`Cordy terminó con ${result.actions.length} acción(es): ${result.actions.map(action => action.status).join(', ')}${result.expectations.length ? `; expectativas: ${result.expectations.map(expectation => expectation.status).join(', ')}` : ''}`);
+    return result.actions.some(action => action.status === 'failed') || result.expectations.some(expectation => expectation.status === 'failed') ? 1 : 0;
   } catch (error) { console.error(error instanceof Error ? error.message : String(error)); return 1; }
 }
