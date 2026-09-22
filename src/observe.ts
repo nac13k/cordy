@@ -9,7 +9,8 @@ function redactValue(type: string | undefined, name: string): InteractiveElement
 export async function observePage(page: Page, task: string, observationId: string): Promise<BrowserState> {
   const elements = await page.locator('input, textarea, select, button, [role="button"], [role="checkbox"], [role="radio"]').evaluateAll(nodes => nodes.map((node, index) => {
     const el = node as HTMLElement & { type?: string; name?: string; placeholder?: string; value?: string; disabled?: boolean };
-    const label = el.getAttribute('aria-label') || el.getAttribute('name') || undefined;
+    const explicitLabel = (el as HTMLInputElement).labels?.[0]?.innerText?.trim();
+    const label = el.getAttribute('aria-label') || explicitLabel || el.getAttribute('name') || undefined;
     const name = label || el.innerText?.trim() || el.getAttribute('title') || `${el.tagName.toLowerCase()}-${index + 1}`;
     const role = el.getAttribute('role') || (el.tagName.toLowerCase() === 'button' ? 'button' : el.tagName.toLowerCase() === 'select' ? 'combobox' : 'textbox');
     return { id: `el_${index + 1}`, role, name, label, placeholder: el.placeholder || undefined, inputType: el.type, valueState: 'empty' as const, visible: true, enabled: !el.disabled };
