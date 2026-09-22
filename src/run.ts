@@ -7,6 +7,7 @@ import type { CordyConfig } from './config.js';
 import { observePage } from './observe.js';
 import type { ActionRecord, PlannedAction } from './domain.js';
 import { inferExpectations } from './expectations.js';
+import { createWorkflowPlan, type WorkflowPlan, type WorkflowStep } from './workflow-plan.js';
 
 function locatorFor(page: Page, locator: { strategy: string; value: string }) {
   if (locator.strategy === 'getByLabel') return page.getByLabel(locator.value);
@@ -34,6 +35,35 @@ export function generateTypeScript(actions: ActionRecord[], startUrl?: string, o
   return lines.join('\n');
 }
 function escapeRegex(value: string) { return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+function currentWorkflowStep(plan: WorkflowPlan, actions: ActionRecord[]): WorkflowStep | undefined {
+  const successful = actions.filter(record => record.status === 'succeeded');
+  for (const step of plan.steps) {
+    if (step.kind === 'navigate_section') {
+      if (!successful.some(record => record.action.kind === 'click')) return step;
+      continue;
+    }
+    if (step.kind === 'fill_inputs') {
+      const filled = new Set(successful.filter(record => record.action.kind === 'fill').map(record => record.action.kind === 'fill' ? record.action.inputKey : undefined));
+      if (!step.inputKeys.every(key => filled.has(key))) return { ...step, inputKeys: step.inputKeys.filter(key => !filled.has(key)) };
+      continue;
+    }
+    if (step.kind === 'click') {
+      if (!successful.some(record => record.action.kind === 'click' && record.action.highImpact)) return step;
+      continue;
+    }
+    if (step.kind === 'assert') return undefined;
+  }
+  return undefined;
+}
+
+function workflowContext(step: WorkflowStep | undefined) {
+  if (!step) return undefined;
+  if (step.kind === 'navigate_section') return { kind: step.kind, target: step.target, allowedActions: ['click', 'wait'] };
+  if (step.kind === 'fill_inputs') return { kind: step.kind, inputKeys: step.inputKeys, allowedActions: ['fill', 'select', 'check'] };
+  if (step.kind === 'click') return { kind: step.kind, target: step.target, allowedActions: ['click'], finalImpact: step.finalImpact };
+  return { kind: step.kind, allowedActions: [] };
+}
+
 function locatorExpression(locator: { strategy: string; value: string }) { const value = JSON.stringify(locator.value); if (locator.strategy === 'getByLabel') return `getByLabel(${value})`; if (locator.strategy === 'getByPlaceholder') return `getByPlaceholder(${value})`; if (locator.strategy === 'getByText') return `getByText(${value})`; if (locator.strategy === 'testId') return `getByTestId(${value})`; if (locator.strategy === 'getByRole') { const [role, ...name] = locator.value.split(':'); return `getByRole(${JSON.stringify(role)}, { name: ${JSON.stringify(name.join(':'))} })`; } return `locator(${value})`; }
 
 async function execute(page: Page, action: PlannedAction, inputs: Record<string, string>, approve: boolean, dryRun: boolean): Promise<ActionRecord> {
@@ -51,14 +81,14 @@ async function execute(page: Page, action: PlannedAction, inputs: Record<string,
 }
 
 export async function runCordy(options: ParsedOptions, config?: CordyConfig) {
-  const task = loadPrompt(options); const inputs = loadInputs(options); const startUrl = options.startUrl; const inferred = inferExpectations(task); const expectVisible = [...options.expectVisible, ...inferred.visible]; const expectButtons = [...options.expectButtons, ...inferred.buttons];
+  const task = loadPrompt(options); const inputs = loadInputs(options); const startUrl = options.startUrl; const plan = createWorkflowPlan(task, inputs); const inferred = inferExpectations(task); const expectVisible = [...options.expectVisible, ...inferred.visible]; const expectButtons = [...options.expectButtons, ...inferred.buttons];
   if (!startUrl) throw new Error('define --start-url para abrir el navegador');
   const browser: Browser = await chromium.launch({ headless: !options.headed }); const page = await browser.newPage(); const actions: ActionRecord[] = [];
   try {
     await page.goto(startUrl); const jev = new JevClient({ apiKey: config ? process.env[config.jev.apiKeyEnv] : undefined, endpoint: config?.jev.endpoint, verbose: options.verbose });
     for (let step = 0; step < options.maxSteps; step += 1) {
       const recentActions = actions.slice(-5).map(record => ({ kind: record.action.kind, locator: 'locator' in record.action ? `${record.action.locator.strategy}:${record.action.locator.value}` : undefined, inputKey: 'inputKey' in record.action ? record.action.inputKey : undefined, status: record.status }));
-      const state = await observePage(page, task, `obs_${step + 1}`, recentActions);
+      const state = await observePage(page, task, `obs_${step + 1}`, recentActions, workflowContext(currentWorkflowStep(plan, actions)));
       const action = await jev.nextAction(state, inputs); const record = await execute(page, action, inputs, true, options.dryRun); actions.push(record);
       if (options.verbose) console.error(JSON.stringify({ step: step + 1, action: record }, null, 2));
       if (record.status !== 'succeeded') break;
@@ -69,7 +99,7 @@ export async function runCordy(options: ParsedOptions, config?: CordyConfig) {
       ...await Promise.all(expectButtons.map(async button => ({ kind: 'button' as const, expected: button, status: await page.getByRole('button', { name: new RegExp(button, 'i') }).first().isVisible().catch(() => false) ? 'passed' as const : 'failed' as const }))),
       ...options.expectUrl.map(url => ({ kind: 'url' as const, expected: url, status: page.url() === url ? 'passed' as const : 'failed' as const })),
     ];
-    const result = { task, startUrl, headed: options.headed, dryRun: options.dryRun, actions, expectations };
+    const result = { task, startUrl, headed: options.headed, dryRun: options.dryRun, plan, actions, expectations };
     if (options.output) await writeFile(options.output, generateTypeScript(actions, startUrl, options.outputKind, expectVisible, expectButtons, options.expectUrl), 'utf8');
     return result;
   } finally { await browser.close(); }

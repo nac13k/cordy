@@ -24,6 +24,12 @@ describe('Jev planner', () => {
     expect(output).toContain('request'); expect(output).toContain('response'); expect(output).toContain('httpStatus');
     expect(output).not.toContain('test-secret'); expect(output).not.toContain('secret-email'); expect(output).not.toContain('secret-password'); expect(output).not.toContain('token=secret');
   });
+  it('blocks a navigation click whose accessible name does not match the current section', async () => {
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({ answers: { action: { choice: 'click' }, target: { choice: 'el_1' }, input_key: { choice: 'none' } } }), { status: 200 }));
+    const client = new JevClient({ apiKey: 'test-only', fetcher });
+    const action = await client.nextAction({ ...state, workflow: { kind: 'navigate_section', target: 'cotizador de envios', allowedActions: ['click', 'wait'] }, interactiveElements: [{ ...state.interactiveElements[0], id: 'el_1', role: 'button', name: 'Cotiza tu envío', locatorCandidates: [{ strategy: 'getByRole' as const, value: 'button:Cotiza tu envío' }] }] }, {});
+    expect(action).toMatchObject({ kind: 'needs_review' });
+  });
   it('blocks an unknown or ambiguous action', async () => {
     const fetcher = vi.fn(async () => new Response(JSON.stringify({ answers: { action: { choice: 'needs_review' }, target: { choice: 'needs_review' } } }), { status: 200 }));
     const client = new JevClient({ apiKey: 'test-only', fetcher });

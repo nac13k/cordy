@@ -418,6 +418,12 @@ Nunca debe mostrar:
 - contraseñas, cookies o tokens;
 - HTML completo o texto completo de la página.
 
+## Plan ordenado de ejecución
+
+Cordy crea un plan en memoria antes de ejecutar el navegador. El plan extrae localmente el orden explícito del prompt —por ejemplo, navegar a una sección, llenar inputs, hacer clic en `Simular` y validar el resultado— y Jev solo resuelve el candidato concreto de la pantalla para el paso actual.
+
+El runtime no permite saltar pasos. Si el prompt solicita `cotizador de envios` pero la página solo expone `Cotiza tu envío`, Cordy bloquea la acción por discrepancia en lugar de navegar a una sección distinta. El plan aparece en la salida `--json`.
+
 ## Acciones soportadas y límites
 
 Jev solo puede proponer acciones estructuradas de este conjunto:

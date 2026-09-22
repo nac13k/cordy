@@ -6,6 +6,8 @@ export type JevClientOptions = { apiKey?: string; endpoint?: string; fetcher?: t
 const DEFAULT_ENDPOINT = 'https://api.typesafe.ai/v1/systemone';
 
 function safePage(url: string) { try { const parsed = new URL(url); return `${parsed.origin}${parsed.pathname}`; } catch { return '[invalid-url]'; } }
+function normalizeText(value: string) { return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); }
+function matchesTarget(name: string, target: string) { const words = normalizeText(target).split(/[^a-z0-9]+/).filter(word => word.length > 2); const candidate = normalizeText(name); return words.length > 0 && words.every(word => candidate.includes(word)); }
 function summarizeAnswers(answers: Record<string, { type?: string; choice?: string; score?: number; noul?: number }>) { return Object.fromEntries(Object.entries(answers).map(([key, answer]) => [key, { type: answer.type, choice: answer.choice, score: answer.score, noul: answer.noul }])); }
 
 export class JevClient {
@@ -21,8 +23,8 @@ export class JevClient {
     const candidates = state.interactiveElements.flatMap(element => element.locatorCandidates.map(locator => ({ elementId: element.id, role: element.role, valueState: element.valueState, ...locator })));
     const completedInputKeys = new Set((state.recentActions ?? []).filter(item => item.status === 'succeeded' && item.kind === 'fill' && item.inputKey).map(item => item.inputKey as string));
     const allInputsFilled = Object.keys(inputs).length > 0 && Object.keys(inputs).every(key => completedInputKeys.has(key));
-    const actionInstructions = allInputsFilled ? 'All provided inputs are already filled. Choose the next safe click needed to complete the requested test flow, or wait. Do not choose fill.' : 'Choose the single next allowed browser action. For fill/select/check, the target must be an editable form control, never a button. Never invent an element or code.';
-    const payload = { model: 'jev-latest', state: { ...state, inputs: Object.fromEntries(Object.keys(inputs).map(key => [key, { available: true, type: 'provided_input' }])), workflow: { allInputsFilled } }, questions: {
+    const actionInstructions = state.workflow ? `Current workflow step is ${state.workflow.kind}${state.workflow.target ? ` targeting "${state.workflow.target}"` : ''}. Allowed actions: ${state.workflow.allowedActions.join(', ')}. Do not skip this step or act on a later step.` : allInputsFilled ? 'All provided inputs are already filled. Choose the next safe click needed to complete the requested test flow, or wait. Do not choose fill.' : 'Choose the single next allowed browser action. For fill/select/check, the target must be an editable form control, never a button. Never invent an element or code.';
+    const payload = { model: 'jev-latest', state: { ...state, inputs: Object.fromEntries(Object.keys(inputs).map(key => [key, { available: true, type: 'provided_input' }])), workflow: { ...state.workflow, allInputsFilled } }, questions: {
       action: { type: 'choice', instructions: actionInstructions, criteria: { fill: 'Fill a provided input into a visible textbox, combobox, or editable control.', click: 'Click the next control required by the requested test flow.', select: 'Select a provided value in a visible combobox.', check: 'Set a visible checkbox from a provided boolean-like input.', wait: 'Wait for the page to change.', needs_review: 'The action is ambiguous, unavailable, or high impact.' } },
       target: { type: 'choice', instructions: 'Choose the target candidate id for the action, or needs_review.', criteria: Object.fromEntries(candidates.map(candidate => [candidate.elementId, `${candidate.strategy}:${candidate.value} (role=${candidate.role}, state=${candidate.valueState})`]).concat([['needs_review', 'No safe target']])) },
       input_key: { type: 'choice', instructions: 'Choose the provided input key required by the action, or none.', criteria: Object.fromEntries(Object.keys(inputs).map(key => [key, `Provided input ${key}`]).concat([['none', 'No input']])) },
@@ -49,11 +51,13 @@ export class JevClient {
       }
     }
     if (action === 'fill' && element?.role === 'button' && /simula|secci[oó]n|entrando|entrar/i.test(state.task)) {
-      const navigationButtons = state.interactiveElements.filter(item => item.role === 'button' && /simula|iniciar|comenzar/i.test(item.name));
-      const navigationButton = navigationButtons.find(item => item.locatorCandidates.some(itemCandidate => /cotizador[_-]iniciar/i.test(itemCandidate.value))) ?? (navigationButtons.length === 1 ? navigationButtons[0] : undefined);
+      const navigationButtons = state.interactiveElements.filter(item => item.role === 'button' && /simula|iniciar|comenzar|mejora|cotizador/i.test(item.name));
+      const navigationButton = navigationButtons.find(item => state.workflow?.target ? matchesTarget(item.name, state.workflow.target) : item.locatorCandidates.some(itemCandidate => /cotizador[_-]iniciar/i.test(itemCandidate.value))) ?? (navigationButtons.length === 1 ? navigationButtons[0] : undefined);
       if (navigationButton) { element = navigationButton; candidate = element.locatorCandidates[0]; return PlannedAction.parse({ kind: 'click', locator: { strategy: candidate.strategy, value: candidate.value, confidence: 0.5, evidenceId: state.observationId }, reason: 'Cordy corrigió una propuesta de fill sobre el botón de entrada', highImpact: false }); }
     }
+    if (state.workflow && !state.workflow.allowedActions.includes(action)) return { kind: 'needs_review', reason: `La acción ${action} no está permitida en el paso ${state.workflow.kind}` };
     if (!element || !candidate) return { kind: 'needs_review', reason: 'El objetivo propuesto no existe en la observación actual' };
+    if (state.workflow?.kind === 'navigate_section' && action === 'click' && state.workflow.target && !matchesTarget(element.name, state.workflow.target)) return { kind: 'needs_review', reason: `El control "${element.name}" no coincide con la sección solicitada "${state.workflow.target}"` };
     if (['fill', 'select', 'check'].includes(action) && !['textbox', 'combobox', 'checkbox', 'radio'].includes(element.role)) return { kind: 'needs_review', reason: `Jev propuso ${action} sobre un elemento role=${element.role}` };
     const locator = { strategy: candidate.strategy, value: candidate.value, confidence: 0.5, evidenceId: state.observationId } as const;
     if (action === 'fill' && inputKey && inputKey !== 'none') return PlannedAction.parse({ kind: 'fill', locator, inputKey, reason: 'Jev seleccionó el campo y el input proporcionado' });

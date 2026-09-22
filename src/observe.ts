@@ -6,7 +6,7 @@ function redactValue(type: string | undefined, name: string, hasValue: boolean):
   return secret ? 'secret_or_redacted' : hasValue ? 'filled' : 'empty';
 }
 
-export async function observePage(page: Page, task: string, observationId: string, recentActions: BrowserState['recentActions'] = []): Promise<BrowserState> {
+export async function observePage(page: Page, task: string, observationId: string, recentActions: BrowserState['recentActions'] = [], workflow?: BrowserState['workflow']): Promise<BrowserState> {
   const elements = (await page.locator('input, textarea, select, button, [role="button"], [role="checkbox"], [role="radio"]').evaluateAll(nodes => nodes.map((node, index) => {
     const el = node as HTMLElement & { type?: string; name?: string; placeholder?: string; value?: string; disabled?: boolean };
     const explicitLabel = (el as HTMLInputElement).labels?.[0]?.innerText?.trim();
@@ -27,5 +27,5 @@ export async function observePage(page: Page, task: string, observationId: strin
   ] }));
   const visibleText = (await page.locator('body').innerText()).slice(0, 12_000);
   const url = page.url();
-  return { task, page: { url, title: await page.title(), origin: new URL(url).origin }, interactiveElements, visibleText, observationId, observedAt: new Date().toISOString(), recentActions };
+  return { task, page: { url, title: await page.title(), origin: new URL(url).origin }, interactiveElements, visibleText, observationId, observedAt: new Date().toISOString(), recentActions, workflow };
 }
