@@ -23,7 +23,10 @@ export function createWorkflowPlan(task: string, inputs: Record<string, string>)
   const normalized = task.replace(/\s+/g, ' ').trim();
   const steps: WorkflowStep[] = [];
   const section = normalized.match(/(?:entra|entrando|navega|navegando|ve)\s+a\s+la\s+secci[oó]n\s+(.+?)(?=\s+y\s+(?:simula|llena|completa)|\s*,|$)/i)?.[1];
-  if (section) steps.push({ id: 'step_1', kind: 'navigate_section', target: clean(section), status: 'pending' });
+  if (section) {
+    steps.push({ id: 'step_1', kind: 'navigate_section', target: clean(section), status: 'pending' });
+    if (!/cotiza\s+tu\s+env[ií]o/i.test(section) && /simula(?:r)?\s+un\s+cr[eé]dito/i.test(normalized)) steps.push({ id: `step_${steps.length + 1}`, kind: 'click', target: 'cotiza tu envio', finalImpact: false, status: 'pending' });
+  }
   const inputKeys = Object.keys(inputs);
   if (inputKeys.length > 0) steps.push({ id: `step_${steps.length + 1}`, kind: 'fill_inputs', inputKeys, status: 'pending' });
   const simulates = /\bsimular?\b|\bsimula\b|\bcalcula(?:r)?\b/i.test(normalized);

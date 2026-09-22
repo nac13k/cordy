@@ -57,7 +57,7 @@ export class JevClient {
     }
     if (state.workflow && !state.workflow.allowedActions.includes(action)) return { kind: 'needs_review', reason: `La acción ${action} no está permitida en el paso ${state.workflow.kind}` };
     if (!element || !candidate) return { kind: 'needs_review', reason: 'El objetivo propuesto no existe en la observación actual' };
-    if (state.workflow?.kind === 'navigate_section' && action === 'click' && state.workflow.target && !matchesTarget(element.name, state.workflow.target)) return { kind: 'needs_review', reason: `El control "${element.name}" no coincide con la sección solicitada "${state.workflow.target}"` };
+    if (state.workflow && ['navigate_section', 'click'].includes(state.workflow.kind) && action === 'click' && state.workflow.target && !matchesTarget(element.name, state.workflow.target)) return { kind: 'needs_review', reason: `El control "${element.name}" no coincide con el objetivo solicitado "${state.workflow.target}"` };
     if (['fill', 'select', 'check'].includes(action) && !['textbox', 'combobox', 'checkbox', 'radio'].includes(element.role)) return { kind: 'needs_review', reason: `Jev propuso ${action} sobre un elemento role=${element.role}` };
     const locator = { strategy: candidate.strategy, value: candidate.value, confidence: 0.5, evidenceId: state.observationId } as const;
     if (action === 'fill' && inputKey && inputKey !== 'none') return PlannedAction.parse({ kind: 'fill', locator, inputKey, reason: 'Jev seleccionó el campo y el input proporcionado' });

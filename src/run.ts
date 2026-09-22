@@ -48,7 +48,9 @@ function currentWorkflowStep(plan: WorkflowPlan, actions: ActionRecord[]): Workf
       continue;
     }
     if (step.kind === 'click') {
-      if (!successful.some(record => record.action.kind === 'click' && record.action.highImpact)) return step;
+      const clickStepsBefore = plan.steps.slice(0, plan.steps.indexOf(step)).filter(previous => previous.kind === 'navigate_section' || previous.kind === 'click').length;
+      const successfulClicks = successful.filter(record => record.action.kind === 'click').length;
+      if (successfulClicks <= clickStepsBefore || (step.finalImpact && !successful.some(record => record.action.kind === 'click' && record.action.highImpact))) return step;
       continue;
     }
     if (step.kind === 'assert') return undefined;
@@ -88,8 +90,14 @@ export async function runCordy(options: ParsedOptions, config?: CordyConfig) {
     await page.goto(startUrl); const jev = new JevClient({ apiKey: config ? process.env[config.jev.apiKeyEnv] : undefined, endpoint: config?.jev.endpoint, verbose: options.verbose });
     for (let step = 0; step < options.maxSteps; step += 1) {
       const recentActions = actions.slice(-5).map(record => ({ kind: record.action.kind, locator: 'locator' in record.action ? `${record.action.locator.strategy}:${record.action.locator.value}` : undefined, inputKey: 'inputKey' in record.action ? record.action.inputKey : undefined, status: record.status }));
-      const state = await observePage(page, task, `obs_${step + 1}`, recentActions, workflowContext(currentWorkflowStep(plan, actions)));
-      const action = await jev.nextAction(state, inputs); const record = await execute(page, action, inputs, true, options.dryRun); actions.push(record);
+      const workflowStep = currentWorkflowStep(plan, actions);
+      const state = await observePage(page, task, `obs_${step + 1}`, recentActions, workflowContext(workflowStep));
+      let action = await jev.nextAction(state, inputs);
+      if (workflowStep?.kind === 'click' && workflowStep.finalImpact && action.kind === 'click') {
+        const emptyControls = state.interactiveElements.filter(element => ['textbox', 'combobox'].includes(element.role) && element.valueState === 'empty').map(element => element.name);
+        if (emptyControls.length > 0) action = { kind: 'needs_review', reason: `No se puede ejecutar ${workflowStep.target}: faltan campos visibles por llenar (${emptyControls.join(', ')})` };
+      }
+      const record = await execute(page, action, inputs, true, options.dryRun); actions.push(record);
       if (options.verbose) console.error(JSON.stringify({ step: step + 1, action: record }, null, 2));
       if (record.status !== 'succeeded') break;
       if (record.action.kind === 'click' && record.action.highImpact) break;
