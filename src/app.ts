@@ -20,6 +20,7 @@ Opciones:
   --output <file>                 Generar TypeScript/TSX
   --output-kind <test|automation> Generar asserts o solo automatización
   --expect-visible <text>          Assert repetible de texto visible
+  --expect-button <name>           Assert repetible de botón por nombre accesible
   --expect-url <url>               Assert repetible de URL
   --max-steps <n>                 Máximo de acciones (default: 20)
   --json                          Resultado JSON
