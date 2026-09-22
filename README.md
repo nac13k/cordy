@@ -230,8 +230,14 @@ Expresiones permitidas:
 
 Las plantillas se resuelven en memoria y los valores resultantes siguen sin enviarse a Jev. Una expresión no permitida produce un error antes de ejecutar el navegador.
 
-Los archivos generados con `--output` también resuelven estas plantillas al ejecutar la prueba generada, usando variables de entorno como fuente:
+Los archivos generados con `--output` preservan la fuente declarada:
 
+- con `--input key=value`, `const input` contiene esos valores fijos dentro del código generado;
+- con `--input ./inputs.json`, `const input` lee y resuelve el JSON cuando se ejecuta la prueba.
+
+Los campos con nombres sensibles como `password`, `token`, `secret` o `api_key` se mantienen como referencias a variables de entorno para no incrustar credenciales en el código.
+
+Ejemplo de ejecución de una prueba generada desde un archivo:
 ```bash
 env \
   email='correo+${timestamp()}@example.com' \

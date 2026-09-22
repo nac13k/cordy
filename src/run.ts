@@ -9,8 +9,11 @@ import type { ActionRecord, PlannedAction } from './domain.js';
 import { inferExpectations } from './expectations.js';
 import { createWorkflowPlan, type WorkflowPlan, type WorkflowStep } from './workflow-plan.js';
 
-function locatorFor(page: Page, locator: { strategy: string; value: string }) {
-  if (locator.strategy === 'getByLabel') return page.getByLabel(locator.value);
+export type GeneratedInputSource = { kind: 'inline'; values: Record<string, string> } | { kind: 'file'; path: string };
+
+function isSensitiveInputKey(key: string) { return /password|passwd|secret|token|api[_-]?key|authorization|cookie/i.test(key); }
+function inlineInputSource(values: Record<string, string>) { return `{${Object.entries(values).map(([key, value]) => `${JSON.stringify(key)}:${isSensitiveInputKey(key) ? `process.env[${JSON.stringify(key)}] ?? ''` : JSON.stringify(value)}`).join(',')}}`; }
+function locatorFor(page: Page, locator: { strategy: string; value: string }) {  if (locator.strategy === 'getByLabel') return page.getByLabel(locator.value);
   if (locator.strategy === 'getByPlaceholder') return page.getByPlaceholder(locator.value);
   if (locator.strategy === 'getByText') return page.getByText(locator.value);
   if (locator.strategy === 'testId') return page.getByTestId(locator.value);
@@ -18,15 +21,19 @@ function locatorFor(page: Page, locator: { strategy: string; value: string }) {
   return page.locator(locator.value);
 }
 
-export function generateTypeScript(actions: ActionRecord[], startUrl?: string, outputKind: 'test' | 'automation' = 'test', expectVisible: string[] = [], expectButtons: string[] = [], expectUrl: string[] = []) {
-  const lines = outputKind === 'test' ? ["import { expect, test } from '@playwright/test';", "import { resolveInputTemplate } from 'cordy';", '', "test('cordy automation', async ({ page }) => {", "  const inputs = Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => typeof entry[1] === 'string').map(([key, value]) => [key, resolveInputTemplate(value)])) as Record<string, string>;"] : ["import { chromium } from 'playwright';", "import { resolveInputTemplate } from 'cordy';", '', '(async () => {', '  const browser = await chromium.launch({ headless: false });', '  const page = await browser.newPage();', "  const inputs = Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => typeof entry[1] === 'string').map(([key, value]) => [key, resolveInputTemplate(value)])) as Record<string, string>;"];
+export function generateTypeScript(actions: ActionRecord[], startUrl?: string, outputKind: 'test' | 'automation' = 'test', expectVisible: string[] = [], expectButtons: string[] = [], expectUrl: string[] = [], inputSource: GeneratedInputSource = { kind: 'inline', values: {} }) {
+  const lines = outputKind === 'test' ? ["import { expect, test } from '@playwright/test';", "import { resolveInputRecord } from 'cordy';", '', "test('cordy automation', async ({ page }) => {"] : ["import { chromium } from 'playwright';", "import { resolveInputRecord } from 'cordy';", '', '(async () => {', '  const browser = await chromium.launch({ headless: false });', '  const page = await browser.newPage();'];
+  const inputDeclaration = inputSource.kind === 'inline' ? `  const input = ${inlineInputSource(inputSource.values)} as Record<string, string>;` : `  const input = resolveInputRecord(JSON.parse(readFileSync(${JSON.stringify(inputSource.path)}, 'utf8')) as Record<string, string>);`;
+  if (inputSource.kind === 'file') lines.splice(1, 0, "import { readFileSync } from 'node:fs';");
+  const declarationIndex = lines.findIndex(line => line.startsWith(outputKind === 'test' ? "test('" : '(async')) + 1;
+  lines.splice(declarationIndex, 0, inputDeclaration);
   if (startUrl) lines.push(`  await page.goto(${JSON.stringify(startUrl)});`);
   for (const record of actions.filter(item => item.status === 'succeeded')) {
     const action = record.action;
     if (action.kind === 'goto') lines.push(`  await page.goto(${JSON.stringify(action.url)});`);
-    if (action.kind === 'fill') lines.push(`  await page.${locatorExpression(action.locator)}.fill(inputs.${action.inputKey});`);
-    if (action.kind === 'select') lines.push(`  await page.${locatorExpression(action.locator)}.selectOption(inputs.${action.inputKey});`);
-    if (action.kind === 'check') lines.push(`  await page.${locatorExpression(action.locator)}.setChecked(Boolean(inputs.${action.inputKey}));`);
+    if (action.kind === 'fill') lines.push(`  await page.${locatorExpression(action.locator)}.fill(input.${action.inputKey});`);
+    if (action.kind === 'select') lines.push(`  await page.${locatorExpression(action.locator)}.selectOption(input.${action.inputKey});`);
+    if (action.kind === 'check') lines.push(`  await page.${locatorExpression(action.locator)}.setChecked(Boolean(input.${action.inputKey}));`);
     if (action.kind === 'click') lines.push(`  await page.${locatorExpression(action.locator)}.click();`);
     if (action.kind === 'wait') lines.push('  await page.waitForLoadState(\'domcontentloaded\');');
   }
@@ -108,7 +115,7 @@ export async function runCordy(options: ParsedOptions, config?: CordyConfig) {
       ...options.expectUrl.map(url => ({ kind: 'url' as const, expected: url, status: page.url() === url ? 'passed' as const : 'failed' as const })),
     ];
     const result = { task, startUrl, headed: options.headed, dryRun: options.dryRun, plan, actions, expectations };
-    if (options.output) await writeFile(options.output, generateTypeScript(actions, startUrl, options.outputKind, expectVisible, expectButtons, options.expectUrl), 'utf8');
+    if (options.output) await writeFile(options.output, generateTypeScript(actions, startUrl, options.outputKind, expectVisible, expectButtons, options.expectUrl, options.inputFile ? { kind: 'file', path: options.inputFile } : { kind: 'inline', values: inputs }), 'utf8');
     return result;
   } finally { await browser.close(); }
 }
