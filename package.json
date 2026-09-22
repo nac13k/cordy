@@ -33,6 +33,7 @@
     "prepack": "npm run build"
   },
   "dependencies": {
+    "@faker-js/faker": "^10.6.0",
     "@playwright/test": "^1.55.0",
     "commander": "^14.0.0",
     "smol-toml": "^1.8.0",

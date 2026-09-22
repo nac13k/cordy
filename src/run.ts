@@ -19,7 +19,7 @@ function locatorFor(page: Page, locator: { strategy: string; value: string }) {
 }
 
 export function generateTypeScript(actions: ActionRecord[], startUrl?: string, outputKind: 'test' | 'automation' = 'test', expectVisible: string[] = [], expectButtons: string[] = [], expectUrl: string[] = []) {
-  const lines = outputKind === 'test' ? ['import { expect, test } from \'@playwright/test\';', '', "test('cordy automation', async ({ page }) => {", '  const inputs = process.env as Record<string, string>;'] : ['import { chromium } from \'playwright\';', '', '(async () => {', '  const browser = await chromium.launch({ headless: false });', '  const page = await browser.newPage();'];
+  const lines = outputKind === 'test' ? ["import { expect, test } from '@playwright/test';", "import { resolveInputTemplate } from 'cordy';", '', "test('cordy automation', async ({ page }) => {", "  const inputs = Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => typeof entry[1] === 'string').map(([key, value]) => [key, resolveInputTemplate(value)])) as Record<string, string>;"] : ["import { chromium } from 'playwright';", "import { resolveInputTemplate } from 'cordy';", '', '(async () => {', '  const browser = await chromium.launch({ headless: false });', '  const page = await browser.newPage();', "  const inputs = Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => typeof entry[1] === 'string').map(([key, value]) => [key, resolveInputTemplate(value)])) as Record<string, string>;"];
   if (startUrl) lines.push(`  await page.goto(${JSON.stringify(startUrl)});`);
   for (const record of actions.filter(item => item.status === 'succeeded')) {
     const action = record.action;

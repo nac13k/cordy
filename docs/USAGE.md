@@ -60,8 +60,35 @@ max_steps = 20
 
 No pongas secretos en TOML, YAML, argumentos, JSON de inputs, código generado ni logs.
 
-## 4. Flujo completo con expectativas inferidas
+## Inputs dinámicos
 
+Cordy admite un DSL cerrado para datos variables, sin ejecutar JavaScript arbitrario:
+
+```text
+${timestamp()}
+${randInt()}
+${randInt(100, 999)}
+${faker.name}
+${faker.email}
+${faker.firstName}
+${faker.lastName}
+${faker.phone}
+```
+
+Ejemplo:
+
+```bash
+npx cordy \
+  "Completa el registro" \
+  --start-url https://example.test \
+  --input email='correo+${timestamp()}@example.com' \
+  --input nombre='${faker.name}' \
+  --input referencia='dias ${randInt(10, 99)}'
+```
+
+Las plantillas se resuelven una vez por ejecución, en memoria. No se aceptan `eval`, `process.env`, imports, llamadas arbitrarias ni acceso a funciones fuera de la allowlist. Las pruebas generadas resuelven las mismas plantillas desde sus variables de entorno.
+
+## 4. Flujo completo con expectativas inferidas
 ```bash
 npx cordy \
   "simula un credito entrando a la seccion cotiza tu envio y llenando el formulario y al simular debe de presentar como resultado esperado una pantalla con los resumen del envio y un boton de guardar cotización" \

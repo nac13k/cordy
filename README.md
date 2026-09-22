@@ -200,7 +200,45 @@ npx cordy \
 
 No guardes contraseñas ni tokens en un JSON versionado. Usa un almacén de secretos o genera el archivo temporalmente fuera del repositorio.
 
-## Instrucciones desde archivo
+## Inputs dinámicos
+
+Los inputs pueden contener plantillas seguras que Cordy resuelve una vez al iniciar la ejecución. No se evalúa JavaScript arbitrario: no se permiten `eval`, acceso a `process`, imports ni expresiones fuera de la lista permitida.
+
+Ejemplos:
+
+```bash
+npx cordy \
+  "Completa el registro" \
+  --start-url https://example.test \
+  --input email='correo+${timestamp()}@example.com' \
+  --input nombre='${faker.name}' \
+  --input referencia='dias ${randInt(10, 99)}'
+```
+
+Expresiones permitidas:
+
+| Expresión | Resultado |
+|---|---|
+| `${timestamp()}` | Unix timestamp en milisegundos |
+| `${randInt()}` | Entero aleatorio entre `0` y `2147483647` |
+| `${randInt(10, 99)}` | Entero aleatorio dentro del rango inclusivo |
+| `${faker.name}` | Nombre completo generado por Faker |
+| `${faker.email}` | Correo generado por Faker |
+| `${faker.firstName}` | Nombre generado por Faker |
+| `${faker.lastName}` | Apellido generado por Faker |
+| `${faker.phone}` | Teléfono generado por Faker |
+
+Las plantillas se resuelven en memoria y los valores resultantes siguen sin enviarse a Jev. Una expresión no permitida produce un error antes de ejecutar el navegador.
+
+Los archivos generados con `--output` también resuelven estas plantillas al ejecutar la prueba generada, usando variables de entorno como fuente:
+
+```bash
+env \
+  email='correo+${timestamp()}@example.com' \
+  nombre='${faker.name}' \
+  npx playwright test ./playwright/registro.spec.ts
+```
+
 
 `task.txt` puede contener una instrucción larga:
 
