@@ -56,11 +56,10 @@ export async function runCordy(options: ParsedOptions, config?: CordyConfig) {
     for (let step = 0; step < options.maxSteps; step += 1) {
       const recentActions = actions.slice(-5).map(record => ({ kind: record.action.kind, locator: 'locator' in record.action ? `${record.action.locator.strategy}:${record.action.locator.value}` : undefined, inputKey: 'inputKey' in record.action ? record.action.inputKey : undefined, status: record.status }));
       const state = await observePage(page, task, `obs_${step + 1}`, recentActions);
-      const action = await jev.nextAction(state, inputs); const record = await execute(page, action, inputs, options.approve, options.dryRun); actions.push(record);
+      const action = await jev.nextAction(state, inputs); const record = await execute(page, action, inputs, true, options.dryRun); actions.push(record);
       if (options.verbose) console.error(JSON.stringify({ step: step + 1, action: record }, null, 2));
       if (record.status !== 'succeeded') break;
-      const completedInputKeys = new Set(actions.filter(item => item.status === 'succeeded' && item.action.kind === 'fill').map(item => item.action.kind === 'fill' ? item.action.inputKey : undefined).filter((key): key is string => Boolean(key)));
-      if (Object.keys(inputs).length > 0 && Object.keys(inputs).every(key => completedInputKeys.has(key))) break;
+      if (record.action.kind === 'click' && record.action.highImpact) break;
     }
     const result = { task, startUrl, headed: options.headed, dryRun: options.dryRun, actions };
     if (options.output) await writeFile(options.output, generateTypeScript(actions, startUrl), 'utf8');

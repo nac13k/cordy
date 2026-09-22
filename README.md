@@ -87,6 +87,8 @@ Verbose output is written to stderr and includes only safe diagnostics:
 - typed answer choices and usage tokens;
 - selected action and execution result.
 
+All Cordy runs are treated as test flows: after explicit inputs are filled, Cordy continues to the final Jev-selected click and stops after that impact action. `--approve` is retained for CLI compatibility but is not required for test-flow execution. Never use this against production systems or irreversible external actions without separate authorization.
+
 It never prints the Jev credential, authorization header, raw input values, cookies, or full page text.
 
 ## Safety boundary
