@@ -8,11 +8,17 @@ describe('page observation', () => {
     const page = await browser.newPage();
     await page.setContent('<a href="/cotizador-envios">Cotizador de envíos</a>');
     const state = await observePage(page, 'entra a la seccion cotizador de envios', 'obs-link');
-    expect(state.interactiveElements).toEqual(expect.arrayContaining([
-      expect.objectContaining({ role: 'link', name: 'Cotizador de envíos', locatorCandidates: expect.arrayContaining([
-        expect.objectContaining({ strategy: 'getByRole', value: 'link:Cotizador de envíos' }),
-      ]) }),
-    ]));
+    expect(state.interactiveElements).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          role: 'link',
+          name: 'Cotizador de envíos',
+          locatorCandidates: expect.arrayContaining([
+            expect.objectContaining({ strategy: 'getByRole', value: 'link:Cotizador de envíos' }),
+          ]),
+        }),
+      ]),
+    );
     await browser.close();
   });
 });

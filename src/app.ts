@@ -31,14 +31,39 @@ export async function main(args = process.argv.slice(2)) {
   if (args[0] === 'init') {
     const format = args.includes('--format') ? args[args.indexOf('--format') + 1] : 'toml';
     if (format !== 'toml' && format !== 'yaml') throw new Error('--format debe ser toml o yaml');
-    const file = await createConfigFile(process.cwd(), format); console.log(`Configuración creada: ${file}`); return 0;
+    const file = await createConfigFile(process.cwd(), format);
+    console.log(`Configuración creada: ${file}`);
+    return 0;
   }
-  if (args.includes('--help') || args.includes('-h')) { console.log(help); return 0; }
+  if (args.includes('--help') || args.includes('-h')) {
+    console.log(help);
+    return 0;
+  }
   try {
-    const options = parseCliArgs(args); const configPath = findConfig(process.cwd(), options.configFile); const config: CordyConfig = configPath ? await loadConfig(configPath) : { jev: { apiKeyEnv: 'JEV_API_KEY' }, browser: { headed: false, maxSteps: 20 } };
-    const effective = { ...options, headed: options.headed || config.browser.headed, startUrl: options.startUrl ?? config.browser.startUrl, origin: options.origin ?? config.browser.origin, maxSteps: options.maxSteps === 20 ? config.browser.maxSteps : options.maxSteps };
+    const options = parseCliArgs(args);
+    const configPath = findConfig(process.cwd(), options.configFile);
+    const config: CordyConfig = configPath
+      ? await loadConfig(configPath)
+      : { jev: { apiKeyEnv: 'JEV_API_KEY' }, browser: { headed: false, maxSteps: 20 } };
+    const effective = {
+      ...options,
+      headed: options.headed || config.browser.headed,
+      startUrl: options.startUrl ?? config.browser.startUrl,
+      origin: options.origin ?? config.browser.origin,
+      maxSteps: options.maxSteps === 20 ? config.browser.maxSteps : options.maxSteps,
+    };
     const result = await runCordy(effective, config);
-    if (options.json) console.log(JSON.stringify(result, null, 2)); else console.log(`Cordy terminó con ${result.actions.length} acción(es): ${result.actions.map(action => action.status).join(', ')}${result.expectations.length ? `; expectativas: ${result.expectations.map(expectation => expectation.status).join(', ')}` : ''}`);
-    return result.actions.some(action => action.status === 'failed') || result.expectations.some(expectation => expectation.status === 'failed') ? 1 : 0;
-  } catch (error) { console.error(error instanceof Error ? error.message : String(error)); return 1; }
+    if (options.json) console.log(JSON.stringify(result, null, 2));
+    else
+      console.log(
+        `Cordy terminó con ${result.actions.length} acción(es): ${result.actions.map((action) => action.status).join(', ')}${result.expectations.length ? `; expectativas: ${result.expectations.map((expectation) => expectation.status).join(', ')}` : ''}`,
+      );
+    return result.actions.some((action) => action.status === 'failed') ||
+      result.expectations.some((expectation) => expectation.status === 'failed')
+      ? 1
+      : 0;
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    return 1;
+  }
 }

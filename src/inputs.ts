@@ -12,7 +12,8 @@ export function loadInputs(options: ParsedOptions): Record<string, string> {
   if (!options.inputFile) return inputs;
   const parsed = JSON.parse(readFileSync(options.inputFile, 'utf8')) as Record<string, unknown>;
   for (const [key, value] of Object.entries(parsed)) {
-    if (!['string', 'number', 'boolean'].includes(typeof value)) throw new Error(`input inválido: ${key}`);
+    if (!['string', 'number', 'boolean'].includes(typeof value))
+      throw new Error(`input inválido: ${key}`);
     inputs[key] = String(value);
   }
   return inputs;
