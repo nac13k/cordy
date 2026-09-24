@@ -4,92 +4,94 @@
 
 <p align="center">
   <strong>Playwright AI // Automated Control</strong><br />
-  Automatización de pruebas web guiada por lenguaje natural.
+  Natural-language guided web test automation.
 </p>
 
 # Cordy
 
-Cordy es un CLI TypeScript para diseñar y ejecutar automatizaciones de Playwright a partir de instrucciones en lenguaje natural. Combina la interpretación semántica de Jev con validaciones locales y una ejecución controlada en el navegador.
+Cordy is a TypeScript CLI for designing and running Playwright automations from natural-language instructions. It combines Jev's semantic interpretation with local validation and controlled browser execution.
 
-## ¿Para qué sirve?
+## What is it for?
 
-Cordy sirve para convertir una instrucción como:
+Cordy turns an instruction such as:
 
 ```text
-Entra a la sección de cotizador de envios, completa el formulario y pulsa Simular.
+Go to the shipping quote section, fill in the form, and click Simulate.
 ```
 
-en un flujo de prueba reproducible:
+into a reproducible test flow:
 
-1. Observa los controles visibles de la página.
-2. Construye y valida un plan ordenado de pasos.
-3. Pide a Jev únicamente la decisión estructurada del paso actual.
-4. Valida localmente el locator, el rol y la acción propuesta.
-5. Deja que Playwright ejecute la interacción.
-6. Comprueba las expectativas explícitas del resultado.
-7. Puede generar una prueba TypeScript lista para `@playwright/test`.
+1. Observe the visible controls on the page.
+2. Build and validate an ordered execution plan.
+3. Ask Jev only for the structured decision for the current step.
+4. Validate the proposed locator, role, and action locally.
+5. Let Playwright execute the interaction.
+6. Check the explicit result expectations.
+7. Optionally generate a TypeScript test ready for `@playwright/test`.
 
-Cordy no permite que Jev ejecute JavaScript o Playwright arbitrario. Jev propone decisiones estructuradas; Cordy conserva el control del flujo y Playwright ejecuta las acciones permitidas.
+Cordy does not allow Jev to execute arbitrary JavaScript or Playwright. Jev proposes structured decisions; Cordy keeps control of the workflow, and Playwright executes only the allowed actions.
 
-## ¿Por qué se llama Cordy?
+## Why is it called Cordy?
 
-El nombre **Cordy** hace referencia a la idea de un organismo que conecta y coordina sistemas. La identidad visual combina un cerebro y un hongo sobre una red de ramas: representa la unión entre razonamiento semántico, automatización y los caminos que atraviesa una prueba dentro de una aplicación web.
+**Cordy** combines two ideas at the center of the project: **coordination** and **Cordyceps**. The name reflects Cordy's role as a coordinator between a natural-language instruction, an external reasoning agent, and a controlled browser runtime.
 
-También es un nombre corto y fácil de recordar para una herramienta cuyo propósito es coordinar el control automatizado del navegador: el lenguaje natural expresa la intención, Jev ayuda a interpretarla y Playwright realiza el trabajo verificable.
+The Cordyceps reference also connects to the visual identity: a brain and a mushroom growing over a branching network. It represents an external agent that can suggest what should happen, while Cordy remains the local control layer that validates, constrains, and coordinates what is actually executed.
 
-> Cordy está diseñado para flujos de prueba. En una ejecución normal completa los inputs, ejecuta el último clic seleccionado y detiene el flujo después de esa acción. No lo uses contra producción ni para operaciones irreversibles sin autorización independiente.
+The name is short and memorable, but its meaning is intentional: the user expresses intent in natural language, Jev helps interpret it, Cordy controls the boundary and the sequence, and Playwright performs the verifiable browser work.
 
-## Requisitos
+> Cordy is designed for test flows. During a normal execution it fills the inputs, performs the selected final click, and stops immediately after that action. Do not use it against production systems or for irreversible operations without independent authorization.
 
-- Node.js 20 o superior.
-- Chromium de Playwright instalado en la máquina que ejecutará Cordy.
-- Una credencial de Jev disponible únicamente como variable de entorno.
-- Una URL inicial absoluta, incluyendo `https://` o `http://`.
+## Requirements
 
-Comprueba Node.js:
+- Node.js 20 or newer.
+- Playwright Chromium installed on the machine that will run Cordy.
+- A Jev credential available only as an environment variable.
+- An absolute starting URL, including `https://` or `http://`.
+
+Check Node.js:
 
 ```bash
 node --version
 ```
 
-## Instalación desde npm
+## Install from npm
 
-### Ejecución puntual con `npx`
+### One-off execution with `npx`
 
-No necesitas instalar Cordy globalmente:
+You do not need to install Cordy globally:
 
 ```bash
 npx cordy --help
 ```
 
-Para evitar que `npx` elija una versión diferente de forma inesperada, fija la versión:
+To prevent `npx` from unexpectedly selecting a different version, pin the version:
 
 ```bash
 npx cordy@0.1.0 --help
 ```
 
-Instala los navegadores de Playwright una sola vez por máquina:
+Install Playwright browsers once per machine:
 
 ```bash
 npx playwright install chromium
 ```
 
-### Instalación local en un proyecto
+### Local installation in a project
 
-Recomendado para suites de pruebas reproducibles:
+Recommended for reproducible test suites:
 
 ```bash
 npm install --save-dev cordy
 npx playwright install chromium
 ```
 
-Ejecuta el binario local:
+Run the local binary:
 
 ```bash
-npx cordy "Completa el formulario" --start-url https://example.test
+npx cordy "Complete the form" --start-url https://example.test
 ```
 
-### Instalación global
+### Global installation
 
 ```bash
 npm install --global cordy
@@ -97,31 +99,31 @@ npx playwright install chromium
 cordy --help
 ```
 
-La instalación global es cómoda para uso manual, pero una dependencia local fija mejor la versión en CI y en equipos compartidos.
+A global installation is convenient for manual use, but a local dependency pins the version more reliably in CI and on shared machines.
 
-## Configuración de Jev
+## Configure Jev
 
-Cordy no recibe la API key como argumento y no la guarda en el archivo de configuración. Define la variable solo en el entorno del proceso:
+Cordy does not accept the API key as a command-line argument and does not store it in the configuration file. Define the variable only in the process environment:
 
 ```bash
-export JEV_API_KEY='tu-credencial-de-jev'
+export JEV_API_KEY='your-jev-credential'
 ```
 
-También puedes cargarla desde un archivo `.env` con tu gestor de secretos o con el mecanismo de entorno de tu shell. No incluyas `.env` en Git.
+You can also load it from a `.env` file through your secret manager or your shell's environment mechanism. Do not commit `.env` to Git.
 
-Cordy usa por defecto:
+Cordy uses this variable by default:
 
 ```text
 JEV_API_KEY
 ```
 
-Para cambiar el nombre de la variable, crea una configuración:
+To change the variable name, create a configuration file:
 
 ```bash
 npx cordy init
 ```
 
-Se crea `cordy.config.toml`:
+This creates `cordy.config.toml`:
 
 ```toml
 [jev]
@@ -135,13 +137,13 @@ max_steps = 20
 # origin = "https://example.test"
 ```
 
-La configuración solo contiene el nombre de la variable, nunca su valor. También puedes generar YAML:
+The configuration contains only the environment-variable name, never its value. You can also generate YAML:
 
 ```bash
 npx cordy init --format yaml
 ```
 
-Cordy descubre automáticamente, en el directorio actual, el primer archivo existente entre:
+Cordy automatically discovers the first existing file in the current directory from this list:
 
 ```text
 cordy.config.toml
@@ -149,80 +151,80 @@ cordy.config.yaml
 cordy.config.yml
 ```
 
-Usa `--config` para indicar una ruta concreta:
+Use `--config` to provide an explicit path:
 
 ```bash
 npx cordy --config ./config/cordy.config.toml \
-  "Completa el formulario" \
+  "Complete the form" \
   --start-url https://example.test
 ```
 
-## Primer flujo
+## First flow
 
 ```bash
-export JEV_API_KEY='tu-credencial-de-jev'
+export JEV_API_KEY='your-jev-credential'
 
 npx cordy \
-  "Completa el formulario de registro" \
-  --start-url https://example.test/registro \
+  "Complete the registration form" \
+  --start-url https://example.test/registration \
   --input email=ana@example.com \
-  --input nombre=Ana \
+  --input name=Ana \
   --headless
 ```
 
-La URL inicial debe ser absoluta. Esto es válido:
+The starting URL must be absolute. This is valid:
 
 ```text
 https://example.test
 ```
 
-Esto no es válido para Playwright:
+This is not valid for Playwright:
 
 ```text
 example.test
 ```
 
-Para ver el navegador:
+To show the browser:
 
 ```bash
 npx cordy \
-  "Completa el formulario de registro" \
-  --start-url https://example.test/registro \
+  "Complete the registration form" \
+  --start-url https://example.test/registration \
   --input email=ana@example.com \
   --headed
 ```
 
-`--headless` es el comportamiento predeterminado y puede usarse para dejarlo explícito.
+`--headless` is the default behavior and can be used explicitly.
 
 ## Inputs
 
-### Inputs `key=value`
+### `key=value` inputs
 
-Repite `--input` para cada valor que el flujo necesita:
+Repeat `--input` for every value required by the flow:
 
 ```bash
 npx cordy \
-  "Simula el crédito" \
+  "Get a shipping quote" \
   --start-url https://example.test \
-  --input peso=3500000 \
-  --input monto=2500000
+  --input weight=3500000 \
+  --input postal_code=2500000
 ```
 
-Los valores se usan localmente para ejecutar `fill`, `select` o `check`. Jev recibe los nombres y la disponibilidad de los inputs, pero no los valores reales.
+Values are used locally to execute `fill`, `select`, or `check`. Jev receives input names and availability, but never the real values.
 
-### Inputs desde JSON
+### Inputs from JSON
 
-Crea `inputs.json`:
+Create `inputs.json`:
 
 ```json
 {
   "email": "ana@example.com",
-  "nombre": "Ana",
-  "peso": "3500000"
+  "name": "Ana",
+  "weight": "3500000"
 }
 ```
 
-Pásalo con `--input`:
+Pass it with `--input`:
 
 ```bash
 npx cordy \
@@ -231,217 +233,217 @@ npx cordy \
   --start-url https://example.test
 ```
 
-No guardes contraseñas ni tokens en un JSON versionado. Usa un almacén de secretos o genera el archivo temporalmente fuera del repositorio.
+Do not store passwords or tokens in a versioned JSON file. Use a secret store or generate the file temporarily outside the repository.
 
-## Inputs dinámicos
+## Dynamic inputs
 
-Los inputs pueden contener plantillas seguras que Cordy resuelve una vez al iniciar la ejecución. No se evalúa JavaScript arbitrario: no se permiten `eval`, acceso a `process`, imports ni expresiones fuera de la lista permitida.
+Inputs can contain safe templates that Cordy resolves once when each execution starts. Arbitrary JavaScript is not evaluated: `eval`, `process` access, imports, and expressions outside the allowlist are not permitted.
 
-Ejemplos:
+Examples:
 
 ```bash
 npx cordy \
-  "Completa el registro" \
+  "Complete the registration" \
   --start-url https://example.test \
-  --input email='correo+${timestamp()}@example.com' \
-  --input nombre='${faker.name}' \
-  --input referencia='dias ${randInt(10, 99)}'
+  --input email='email+${timestamp()}@example.com' \
+  --input name='${faker.name}' \
+  --input reference='days ${randInt(10, 99)}'
 ```
 
-Expresiones permitidas:
+Supported expressions:
 
-| Expresión | Resultado |
+| Expression | Result |
 |---|---|
-| `${timestamp()}` | Unix timestamp en milisegundos |
-| `${randInt()}` | Entero aleatorio entre `0` y `2147483647` |
-| `${randInt(10, 99)}` | Entero aleatorio dentro del rango inclusivo |
-| `${faker.name}` | Nombre completo generado por Faker |
-| `${faker.email}` | Correo generado por Faker |
-| `${faker.firstName}` | Nombre generado por Faker |
-| `${faker.lastName}` | Apellido generado por Faker |
-| `${faker.phone}` | Teléfono generado por Faker |
+| `${timestamp()}` | Unix timestamp in milliseconds |
+| `${randInt()}` | Random integer between `0` and `2147483647` |
+| `${randInt(10, 99)}` | Inclusive random integer in the range |
+| `${faker.name}` | Generated full name |
+| `${faker.email}` | Generated email address |
+| `${faker.firstName}` | Generated first name |
+| `${faker.lastName}` | Generated last name |
+| `${faker.phone}` | Generated phone number |
 
-Las plantillas se resuelven en memoria y los valores resultantes siguen sin enviarse a Jev. Una expresión no permitida produce un error antes de ejecutar el navegador.
+Templates are resolved in memory and the resulting values are still never sent to Jev. An unsupported expression fails before the browser is executed.
 
-Los archivos generados con `--output` preservan la fuente declarada:
+Generated files created with `--output` preserve the declared input source:
 
-- con `--input key=value`, `const input` contiene la plantilla original dentro del código y la evalúa al comenzar cada ejecución;
-- con `--input ./inputs.json`, `const input` lee el JSON y evalúa sus plantillas al comenzar cada ejecución.
+- with `--input key=value`, `const input` contains the original template in the generated code and evaluates it at the beginning of every execution;
+- with `--input ./inputs.json`, `const input` reads the JSON file and evaluates its templates at the beginning of every execution.
 
-Los campos con nombres sensibles como `password`, `token`, `secret` o `api_key` se mantienen como referencias a variables de entorno para no incrustar credenciales en el código.
+Fields with sensitive names such as `password`, `token`, `secret`, or `api_key` remain references to environment variables so credentials are not embedded in generated code.
 
-Ejemplo de ejecución de una prueba generada desde un archivo:
+Example of running a generated test from a file:
+
 ```bash
 env \
-  email='correo+${timestamp()}@example.com' \
-  nombre='${faker.name}' \
-  npx playwright test ./playwright/registro.spec.ts
+  email='email+${timestamp()}@example.com' \
+  name='${faker.name}' \
+  npx playwright test ./playwright/registration.spec.ts
 ```
 
-
-`task.txt` puede contener una instrucción larga:
+`task.txt` can contain a longer instruction:
 
 ```text
-Simula un crédito entrando a la sección de simulación, llena los valores proporcionados y verifica el resultado esperado.
+Get a shipping quote by entering the simulation section, fill in the provided values, and verify the expected result.
 ```
 
-Ejecuta:
+Run it:
 
 ```bash
 npx cordy \
   --prompt-file ./task.txt \
   --input ./inputs.json \
   --start-url https://example.test \
-  --output ./playwright/flujo.spec.ts
+  --output ./playwright/flow.spec.ts
 ```
 
-No combines una instrucción posicional con `--prompt-file`.
+Do not combine a positional instruction with `--prompt-file`.
 
-## Expectativas y asserts
+## Expectations and assertions
 
-Cordy puede recibir expectativas explícitas o inferirlas del prompt cuando están expresadas de forma inequívoca.
+Cordy accepts explicit expectations or can infer them from the prompt when they are stated unambiguously.
 
-### Expectativas inferidas del prompt
+### Expectations inferred from the prompt
 
-Este prompt declara dos resultados esperados:
+This prompt declares two expected results:
 
 ```text
-Simula un crédito, llena el formulario y al simular debe presentar como resultado esperado una pantalla con los resumen del envío y un botón de guardar cotización.
+Get a shipping quote, fill in the form, and after simulation show a screen with the shipment summary and a save quote button.
 ```
 
-Cordy propone:
+Cordy proposes:
 
 ```text
-texto visible: resumen del envío
-botón visible: guardar cotización
+visible text: shipment summary
+visible button: save quote
 ```
 
-La salida de prueba contiene asserts equivalentes a:
+The generated test contains assertions equivalent to:
 
 ```tsx
 await expect(
-  page.getByText(new RegExp("resumen del envio", "i")).first()
+  page.getByText(new RegExp("shipment summary", "i")).first(),
 ).toBeVisible();
 
 await expect(
   page.getByRole("button", {
-    name: new RegExp("guardar cotización", "i")
-  })
+    name: new RegExp("save quote", "i"),
+  }),
 ).toBeVisible();
 ```
 
-La expectativa del botón conserva el rol `button`; no se convierte en un `getByText` genérico. La comparación ignora mayúsculas y permite variaciones de presentación como `Guardar cotización`, `GUARDAR COTIZACIÓN` o un sufijo visual.
+The button expectation preserves the `button` role; it is not converted into a generic `getByText`. Matching is case-insensitive and allows presentation variations such as `Save quote`, `SAVE QUOTE`, or a visual suffix.
 
-Cordy no debe inventar expectativas para frases vagas como `que todo salga bien`. Si la condición no aparece explícitamente o no puede mapearse a una observación verificable, no se genera un assert automático.
+Cordy must not invent expectations for vague phrases such as `make sure everything works`. If a condition is not explicit or cannot be mapped to an observable check, no automatic assertion is generated.
 
-### Expectativas explícitas
+### Explicit expectations
 
-Texto visible:
+Visible text:
 
 ```bash
---expect-visible "resumen del envío"
+--expect-visible "Shipment summary"
 ```
 
-Botón por nombre accesible:
+Button by accessible name:
 
 ```bash
---expect-button "Guardar cotización"
+--expect-button "Save quote"
 ```
 
 URL:
 
 ```bash
---expect-url "https://example.test/resultado"
+--expect-url "https://example.test/result"
 ```
 
-Cada opción puede repetirse:
+Each option can be repeated:
 
 ```bash
 npx cordy \
-  "Completa el flujo" \
+  "Complete the flow" \
   --start-url https://example.test \
-  --expect-visible "Resumen de solicitud" \
-  --expect-visible "Monto mensual" \
-  --expect-button "Continuar" \
-  --expect-url "https://example.test/resultado"
+  --expect-visible "Application summary" \
+  --expect-visible "Monthly amount" \
+  --expect-button "Continue" \
+  --expect-url "https://example.test/result"
 ```
 
-Las expectativas se comprueban en vivo al terminar el flujo. Una expectativa fallida hace que Cordy devuelva código de salida `1`.
+Expectations are checked live when the flow ends. A failed expectation makes Cordy return exit code `1`.
 
-## Generar una prueba o una automatización
+## Generate a test or an automation
 
-### Prueba Playwright con asserts
+### Playwright test with assertions
 
-`test` es el tipo de salida predeterminado:
+`test` is the default output type:
 
 ```bash
 npx cordy \
-  "Simula el crédito y muestra el botón de guardar cotización como resultado esperado" \
+  "Get a shipping quote and show the save quote button as the expected result" \
   --start-url https://example.test \
-  --input peso=3500000 \
-  --input monto=2500000 \
-  --output ./playwright/simulacion.spec.ts \
+  --input weight=3500000 \
+  --input postal_code=2500000 \
+  --output ./playwright/simulation.spec.ts \
   --output-kind test
 ```
 
-La salida importa `@playwright/test`, crea un `test(...)`, reproduce las acciones exitosas y añade los `expect(...)`.
+The output imports `@playwright/test`, creates a `test(...)`, replays successful actions, and adds the `expect(...)` assertions.
 
-### Automatización sin asserts
+### Automation without assertions
 
-Usa `automation` cuando solo quieras la secuencia de interacción:
+Use `automation` when you only want the interaction sequence:
 
 ```bash
 npx cordy \
-  "Completa el flujo" \
+  "Complete the flow" \
   --start-url https://example.test \
   --input email=ana@example.com \
-  --output ./playwright/flujo.ts \
+  --output ./playwright/flow.ts \
   --output-kind automation
 ```
 
-La salida usa Playwright directamente y espera la visibilidad de las condiciones explícitas sin importar `@playwright/test`.
+The output uses Playwright directly and waits for the visibility of explicit expectations without importing `@playwright/test`.
 
-`--output` es opcional. Sin él, Cordy no escribe el archivo de automatización.
+`--output` is optional. Without it, Cordy does not write an automation file.
 
-## Simulación, ejecución y límite de pasos
+## Dry run, execution, and step limits
 
-Planificar sin interactuar con el sitio:
+Plan without interacting with the site:
 
 ```bash
 npx cordy \
-  "Completa el flujo" \
+  "Complete the flow" \
   --start-url https://example.test \
   --input email=ana@example.com \
   --dry-run \
   --json
 ```
 
-Limitar la cantidad de decisiones:
+Limit the number of decisions:
 
 ```bash
 --max-steps 10
 ```
 
-El valor permitido está entre `1` y `100`; el predeterminado es `20`.
+The allowed value is between `1` and `100`; the default is `20`.
 
-`--approve` se conserva por compatibilidad de CLI. El comportamiento actual de Cordy considera las ejecuciones como flujos de prueba y permite el clic final de impacto para completar el flujo, deteniéndose inmediatamente después. La acción siempre debe pasar la validación local de rol, locator y estado de la página.
+`--approve` is retained for CLI compatibility. Cordy's current behavior treats executions as test flows and permits the final impact click to complete the flow, stopping immediately afterward. The action must still pass local validation of the role, locator, and page state.
 
-## Salida JSON y códigos de salida
+## JSON output and exit codes
 
-Para integrarlo en scripts:
+For script integration:
 
 ```bash
 npx cordy \
-  "Completa el flujo" \
+  "Complete the flow" \
   --start-url https://example.test \
   --json > result.json
 ```
 
-El resultado incluye, entre otros campos:
+The result includes fields such as:
 
 ```json
 {
-  "task": "Completa el flujo",
+  "task": "Complete the flow",
   "startUrl": "https://example.test",
   "actions": [
     {
@@ -451,59 +453,59 @@ El resultado incluye, entre otros campos:
   "expectations": [
     {
       "kind": "button",
-      "expected": "Guardar cotización",
+      "expected": "Save quote",
       "status": "passed"
     }
   ]
 }
 ```
 
-Códigos de salida:
+Exit codes:
 
-- `0`: acciones y expectativas completadas.
-- `1`: acción fallida, acción bloqueada, expectativa fallida o error de configuración/ejecución.
+- `0`: actions and expectations completed.
+- `1`: an action failed, an action was blocked, an expectation failed, or a configuration/execution error occurred.
 
-## Diagnóstico seguro
+## Safe diagnostics
 
-Añade `--verbose`:
+Add `--verbose`:
 
 ```bash
 npx cordy \
-  "Completa el flujo" \
+  "Complete the flow" \
   --start-url https://example.test \
   --input email=ana@example.com \
   --verbose
 ```
 
-Las trazas se escriben en `stderr`, por lo que `stdout` puede seguir conteniendo JSON limpio cuando usas `--json`.
+Diagnostics are written to `stderr`, so `stdout` can continue to contain clean JSON when using `--json`.
 
-El diagnóstico puede mostrar:
+Diagnostics may show:
 
-- endpoint y modelo de Jev;
-- identificador de observación;
-- URL sin query string ni fragmento;
-- nombres de inputs;
-- cantidad de candidatos y preguntas;
-- código HTTP;
-- respuestas tipadas y uso de tokens;
-- acción seleccionada y resultado local.
+- Jev endpoint and model;
+- observation identifier;
+- URL without query string or fragment;
+- input names;
+- candidate and question counts;
+- HTTP status;
+- typed responses and token usage;
+- selected action and local result.
 
-Nunca debe mostrar:
+Diagnostics must never show:
 
-- API keys o cabeceras `Authorization`;
-- valores reales de inputs;
-- contraseñas, cookies o tokens;
-- HTML completo o texto completo de la página.
+- API keys or `Authorization` headers;
+- real input values;
+- passwords, cookies, or tokens;
+- complete HTML or complete page text.
 
-## Plan ordenado de ejecución
+## Ordered execution plan
 
-Cordy crea un plan en memoria antes de ejecutar el navegador. El plan extrae localmente el orden explícito del prompt —por ejemplo, navegar a una sección, llenar inputs, hacer clic en `Simular` y validar el resultado— y Jev solo resuelve el candidato concreto de la pantalla para el paso actual.
+Cordy creates an in-memory plan before running the browser. The plan extracts the explicit order from the prompt locally—for example, navigate to a section, fill inputs, click `Simulate`, and validate the result—and Jev only resolves the concrete candidate on the current screen for the current step.
 
-El runtime no permite saltar pasos. Si el prompt solicita `cotizador de envios` pero la página solo expone `Cotiza tu envío`, Cordy bloquea la acción por discrepancia en lugar de navegar a una sección distinta. El plan aparece en la salida `--json`.
+The runtime does not allow steps to be skipped. If the prompt requests `shipping quote` but the page only exposes `Track a package`, Cordy blocks the action because of the mismatch instead of navigating to a different section. The plan appears in `--json` output.
 
-## Acciones soportadas y límites
+## Supported actions and limits
 
-Jev solo puede proponer acciones estructuradas de este conjunto:
+Jev can only propose structured actions from this set:
 
 - `goto`;
 - `fill`;
@@ -513,57 +515,60 @@ Jev solo puede proponer acciones estructuradas de este conjunto:
 - `wait`;
 - `needs_review`.
 
-Jev no ejecuta JavaScript, no escribe código Playwright y no recibe los valores reales de los inputs. Playwright solo ejecuta una acción después de la validación local contra los controles observados en la página actual.
+Jev does not execute JavaScript, does not write Playwright code, and does not receive real input values. Playwright executes an action only after local validation against the controls observed on the current page.
 
-Cordy bloquea, entre otros casos:
+Cordy blocks, among other cases:
 
-- `fill` sobre un botón;
-- targets ausentes o ambiguos;
-- controles que ya no coinciden con la observación;
-- inputs no proporcionados;
-- URLs iniciales inválidas;
-- propuestas incompatibles con el rol accesible del elemento.
+- `fill` on a button;
+- missing or ambiguous targets;
+- controls that no longer match the observation;
+- inputs that were not provided;
+- invalid starting URLs;
+- proposals incompatible with the element's accessible role.
 
-## Integración en CI
+## CI integration
 
-Ejemplo de instalación reproducible:
+Example of a reproducible installation:
 
 ```bash
 npm ci
 npx playwright install --with-deps chromium
 ```
 
-Configura `JEV_API_KEY` mediante el secreto del proveedor de CI, no mediante un commit ni una variable escrita en logs. Ejecuta en modo headless y conserva JSON como artefacto:
+Configure `JEV_API_KEY` through the CI provider's secret store, not through a commit or a variable written to logs. Run headless and preserve JSON as an artifact:
 
 ```bash
 npx cordy \
-  --prompt-file ./tasks/simulacion.txt \
-  --input ./tasks/simulacion.inputs.json \
+  --prompt-file ./tasks/simulation.txt \
+  --input ./tasks/simulation.inputs.json \
   --start-url https://staging.example.test \
   --headless \
-  --output ./artifacts/simulacion.spec.ts \
+  --output ./artifacts/simulation.spec.ts \
   --output-kind test \
-  --json > ./artifacts/simulacion.result.json
+  --json > ./artifacts/simulation.result.json
 ```
 
-Revisa el archivo JSON y el código de salida antes de publicar resultados.
+Review the JSON file and exit code before publishing results.
 
-## Desarrollo desde el repositorio
+## Development from the repository
 
 ```bash
-git clone <url-del-repositorio>
+git clone <repository-url>
 cd cordy
 npm ci
 npx playwright install chromium
+npm run format:check
 npm run typecheck
 npm test
 npm run build
 npm pack --dry-run
 ```
 
-Comandos disponibles:
+Available commands:
 
 ```bash
+npm run format
+npm run format:check
 npm run typecheck
 npm test
 npm run test:watch
@@ -572,13 +577,14 @@ npm run lint
 npm pack --dry-run
 ```
 
-## Publicación del paquete
+## Publishing the package
 
-La publicación es una operación externa y debe hacerse con una cuenta npm autorizada:
+Publishing is an external operation and must be performed with an authorized npm account:
 
 ```bash
 npm login
 npm whoami
+npm run format:check
 npm run typecheck
 npm test
 npm run build
@@ -586,24 +592,24 @@ npm pack --dry-run
 npm publish
 ```
 
-Antes de publicar una nueva versión:
+Before publishing a new version:
 
-1. actualiza la versión con `npm version`;
-2. revisa `npm pack --dry-run`;
-3. confirma que no se incluyen `.env`, credenciales, fixtures privados ni archivos temporales;
-4. verifica que `dist`, `README.md` y `LICENSE` sí están incluidos;
-5. publica desde un entorno con la credencial npm configurada de forma segura.
+1. update the version with `npm version`;
+2. review `npm pack --dry-run`;
+3. confirm that `.env`, credentials, private fixtures, and temporary files are not included;
+4. verify that `dist`, `README.md`, and `LICENSE` are included;
+5. publish from an environment where the npm credential is configured securely.
 
-## API programática
+## Programmatic API
 
-El paquete también exporta la API TypeScript principal:
+The package also exports the main TypeScript API:
 
 ```ts
 import { generateTypeScript, runCordy } from 'cordy';
 ```
 
-El comando `cordy` es la interfaz recomendada para usuarios finales. La API programática está sujeta a cambios mientras el paquete permanezca en versión `0.x`.
+The `cordy` command is the recommended interface for end users. The programmatic API may change while the package remains in version `0.x`.
 
-## Licencia
+## License
 
 MIT
