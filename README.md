@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/cordy-logo.jpg" alt="Cordy — Playwright AI automated control" width="420" />
+  <img src="docs/assets/cordy-logo-transparent.png" alt="Cordy — Playwright AI automated control" width="420" />
 </p>
 
 <p align="center">
