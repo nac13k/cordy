@@ -313,9 +313,13 @@ export async function runCordy(options: ParsedOptions, config?: CordyConfig) {
   const actions: ActionRecord[] = [];
   try {
     await page.goto(startUrl);
+    let stepLimitReached = true;
     for (let step = 0; step < options.maxSteps; step += 1) {
       const planStep = steps[cursor.index];
-      if (!planStep && planFile) break;
+      if (!planStep) {
+        stepLimitReached = false;
+        break;
+      }
       let record: ActionRecord;
       if (planStep?.kind === 'wait')
         record = await execute(
@@ -394,9 +398,18 @@ export async function runCordy(options: ParsedOptions, config?: CordyConfig) {
         allKeys,
         consumedInputKeys(actions),
       ).cursor;
-      if (record.status !== 'succeeded') break;
-      if (!planFile && record.action.kind === 'click' && record.action.highImpact) break;
+      if (
+        record.status !== 'succeeded' ||
+        (!planFile && record.action.kind === 'click' && record.action.highImpact)
+      ) {
+        stepLimitReached = false;
+        break;
+      }
     }
+    if (!planFile && !options.dryRun && stepLimitReached && steps[cursor.index])
+      errors.push(
+        `Prompt step ${cursor.index + 1} (${describePlanStep(steps[cursor.index])}) was not completed within --max-steps`,
+      );
     if (planFile && !options.dryRun) {
       const incomplete = steps[cursor.index];
       if (incomplete)

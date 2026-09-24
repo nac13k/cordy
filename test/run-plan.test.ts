@@ -246,4 +246,109 @@ describe('plan file runs', () => {
     ]);
     expect(result.errors).toBeUndefined();
   }, 30_000);
+
+  describe('prompt runs end with their derived steps', () => {
+    const quotePage = async () => {
+      const page = join(dir, 'quote.html');
+      await writeFile(page, '<label>Peso<input id="peso"></label><button>Simulate</button>');
+      return pathToFileURL(page).href;
+    };
+    const jevCalls = () =>
+      (globalThis.fetch as unknown as { mock: { calls: unknown[] } }).mock.calls;
+
+    it('stops after the fill when the prompt only derives a fill step', async () => {
+      fakeJev([
+        { action: 'fill', target: 'el_1', input_key: 'peso' },
+        { action: 'click', target: 'el_2', input_key: 'none' },
+      ]);
+      // Spanish prompt on purpose: the planner derives only a fill step from it.
+      const result = await runCordy(
+        parseCliArgs([
+          'llena el formulario',
+          '--start-url',
+          await quotePage(),
+          '--input',
+          'peso=2',
+        ]),
+      );
+      expect(result.actions.map((record) => [record.action.kind, record.status])).toEqual([
+        ['fill', 'succeeded'],
+      ]);
+      expect(jevCalls()).toHaveLength(1);
+      expect(result.errors).toBeUndefined();
+    }, 30_000);
+
+    it('never clicks Simulate for an English prompt that only yields a fill step', async () => {
+      fakeJev([
+        { action: 'fill', target: 'el_1', input_key: 'peso' },
+        { action: 'click', target: 'el_2', input_key: 'none' },
+      ]);
+      const result = await runCordy(
+        parseCliArgs([
+          'Go to the shipping quote section, fill in the form, and click Simulate.',
+          '--start-url',
+          await quotePage(),
+          '--input',
+          'peso=2',
+        ]),
+      );
+      expect(result.actions.map((record) => record.action.kind)).toEqual(['fill']);
+      expect(jevCalls()).toHaveLength(1);
+    }, 30_000);
+
+    it('fails when the step limit ends the run before the derived steps are complete', async () => {
+      fakeJev([{ action: 'fill', target: 'el_1', input_key: 'peso' }]);
+      // Spanish prompt on purpose: the planner derives a fill step and a final "simular" click.
+      const result = await runCordy(
+        parseCliArgs([
+          'llena el formulario y simula',
+          '--start-url',
+          await quotePage(),
+          '--input',
+          'peso=2',
+          '--max-steps',
+          '1',
+        ]),
+      );
+      expect(result.errors).toEqual([
+        'Prompt step 2 (submit: simular) was not completed within --max-steps',
+      ]);
+    }, 30_000);
+
+    it('reports no step-limit error when the run stops on a blocked click', async () => {
+      fakeJev([
+        { action: 'fill', target: 'el_1', input_key: 'peso' },
+        { action: 'click', target: 'el_2', input_key: 'none' },
+      ]);
+      const result = await runCordy(
+        parseCliArgs([
+          'llena el formulario y simula',
+          '--start-url',
+          await quotePage(),
+          '--input',
+          'peso=2',
+        ]),
+      );
+      expect(result.actions.at(-1)).toMatchObject({ status: 'blocked' });
+      expect(result.errors).toBeUndefined();
+    }, 30_000);
+  });
+
+  it('blocks a click on an English submission button in a plan step without --approve', async () => {
+    const page = join(dir, 'simulate.html');
+    await writeFile(page, '<button>Simulate</button>');
+    fakeJev([{ action: 'click', target: 'el_1', input_key: 'none' }], [{ step_0: 'click' }]);
+    // Spanish step text on purpose: plan steps may be written in any language.
+    const plan = await writePlan('version: 1\nsteps:\n  - clic en "Simulate"\n');
+    const result = await runCordy(
+      parseCliArgs(['--plan', plan, '--start-url', pathToFileURL(page).href]),
+    );
+    expect(result.actions).toEqual([
+      expect.objectContaining({
+        action: expect.objectContaining({ kind: 'click', highImpact: true }),
+        status: 'blocked',
+        error: 'requires --approve',
+      }),
+    ]);
+  }, 30_000);
 });

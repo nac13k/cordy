@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { anchoredIn, JevClient } from '../src/jev.js';
+import { anchoredIn, HIGH_IMPACT_WORDS, isHighImpactName, JevClient } from '../src/jev.js';
 
 // Recorded Jev response for a classification request (answers only, no credentials).
 const classification = JSON.parse(
@@ -136,6 +136,23 @@ describe('Jev planner', () => {
       {},
     );
     expect(action.kind).toBe('needs_review');
+  });
+  it('never invites an unconstrained click once all inputs are filled', async () => {
+    const bodies: string[] = [];
+    const fetcher = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      bodies.push(String(init?.body));
+      return new Response(
+        JSON.stringify({ answers: { action: { choice: 'wait' }, target: { choice: 'el_1' } } }),
+      );
+    });
+    await new JevClient({ apiKey: 'test-only', fetcher }).nextAction(
+      state,
+      { email: 'x' },
+      { consumedInputKeys: ['email'] },
+    );
+    const payload = JSON.parse(bodies[0]);
+    expect(payload.questions.action.instructions).not.toMatch(/next safe click/i);
+    expect(payload.state.workflow.allInputsFilled).toBe(true);
   });
   it('reports all inputs filled from the full consumption history', async () => {
     const payloads: Array<{ state: { workflow: { allInputsFilled: boolean } } }> = [];
@@ -500,5 +517,20 @@ describe('Jev planner', () => {
         locator: { value: '#codigo_postal' },
       });
     });
+  });
+});
+
+describe('high-impact control names', () => {
+  it.each(['Simulate', 'PLACE ORDER', 'Send request', 'Continuar', 'Pay now', 'Delete account'])(
+    'treats %s as high impact',
+    (name) => expect(isHighImpactName(name)).toBe(true),
+  );
+  it.each(['Cotizador de envíos', 'Next page', 'Help'])('treats %s as a safe control', (name) =>
+    expect(isHighImpactName(name)).toBe(false),
+  );
+  it('keeps the Spanish verbs and submit in the list', () => {
+    expect(HIGH_IMPACT_WORDS).toEqual(
+      expect.arrayContaining(['submit', 'enviar', 'simular', 'confirmar', 'calcular']),
+    );
   });
 });

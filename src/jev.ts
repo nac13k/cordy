@@ -30,6 +30,33 @@ function normalizeText(value: string) {
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
 }
+/** Words that make a click high impact when they appear in the control's name (any case). */
+export const HIGH_IMPACT_WORDS = [
+  'submit',
+  'enviar',
+  'simular',
+  'continuar',
+  'confirmar',
+  'calcular',
+  'solicitar',
+  'simulate',
+  'calculate',
+  'send',
+  'confirm',
+  'continue',
+  'request',
+  'apply',
+  'pay',
+  'purchase',
+  'buy',
+  'order',
+  'delete',
+  'remove',
+] as const;
+const HIGH_IMPACT_NAME = new RegExp(HIGH_IMPACT_WORDS.join('|'), 'i');
+export function isHighImpactName(name: string) {
+  return HIGH_IMPACT_NAME.test(name);
+}
 function normalizeForAnchor(value: string) {
   return value
     .normalize('NFD')
@@ -224,9 +251,7 @@ export class JevClient {
       inputKeys.length > 0 && inputKeys.every((key) => completedInputKeys.has(key));
     const actionInstructions = state.workflow
       ? `Current workflow step is ${state.workflow.kind}${state.workflow.target ? ` targeting "${state.workflow.target}"` : ''}. Allowed actions: ${state.workflow.allowedActions.join(', ')}. Do not skip this step or act on a later step.`
-      : allInputsFilled
-        ? 'All provided inputs are already filled. Choose the next safe click needed to complete the requested test flow, or wait. Do not choose fill.'
-        : 'Choose the single next allowed browser action. For fill/select/check, the target must be an editable form control, never a button. Never invent an element or code.';
+      : 'Choose the single next allowed browser action. For fill/select/check, the target must be an editable form control, never a button. Never invent an element or code.';
     const payload = {
       model: 'jev-latest',
       state: {
@@ -425,9 +450,7 @@ export class JevClient {
         reason: 'Jev selected the checkbox and provided input',
       });
     if (action === 'click') {
-      const highImpact = /submit|enviar|simular|continuar|confirmar|calcular|solicitar/i.test(
-        element.name,
-      );
+      const highImpact = isHighImpactName(element.name);
       return PlannedAction.parse({
         kind: 'click',
         locator,

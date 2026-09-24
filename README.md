@@ -51,7 +51,7 @@ The Cordyceps reference also connects to the visual identity: a brain and a mush
 
 The name is short and memorable, but its meaning is intentional: the user expresses intent in natural language, Jev helps interpret it, Cordy controls the boundary and the sequence, and Playwright performs the verifiable browser work.
 
-> Cordy is designed for test flows. It fills the inputs and runs the final high-impact click only when you pass `--approve`; a prompt run stops right after that click. Do not use it against production systems or for irreversible operations without independent authorization.
+> Cordy is designed for test flows. It only runs the steps derived from your prompt or listed in your plan, and it runs a high-impact click (such as a final submit) only when you pass `--approve`. A prompt run stops as soon as its derived steps are done. Do not use it against production systems or for irreversible operations without independent authorization.
 
 ## Requirements
 
@@ -544,7 +544,7 @@ The allowed value is between `1` and `100`; the default is `20`.
 
 `--dry-run` never writes the `--output` file. With `--test-name`, it prints a preview instead: the import changes as a diff, and whether the test would be appended or replaced (with its current lines). Insert/update conflicts are still reported. Earlier versions wrote a nearly empty file during a dry run.
 
-High-impact clicks (a `submit` step, or a control whose name looks like a submission such as `Simular`, `Enviar`, or `Confirmar`) run only with `--approve`. Without it, the click is recorded as `blocked` with `requires --approve`, and nothing is clicked. **Breaking change:** earlier versions ignored `--approve` and always executed the final click, so add `--approve` to existing commands that must complete the flow. Prompt runs stop right after the high-impact click; plan runs continue with their remaining steps. The action must still pass local validation of the role, locator, and page state.
+High-impact clicks run only with `--approve`. A click is high impact when its step is a `submit` step or the prompt's final `simular` click, or when the control's name contains (in any case) `submit`, `enviar`, `simular`, `continuar`, `confirmar`, `calcular`, `solicitar`, `simulate`, `calculate`, `send`, `confirm`, `continue`, `request`, `apply`, `pay`, `purchase`, `buy`, `order`, `delete`, or `remove`. For example, `Simulate`, `Send request`, and `Place order` are high impact. Without it, the click is recorded as `blocked` with `requires --approve`, and nothing is clicked. **Breaking change:** earlier versions ignored `--approve` and always executed the final click, so add `--approve` to existing commands that must complete the flow. Prompt runs stop right after the high-impact click; plan runs continue with their remaining steps. The action must still pass local validation of the role, locator, and page state.
 
 ## JSON output and exit codes
 
@@ -580,7 +580,7 @@ The result includes fields such as:
 }
 ```
 
-With `--plan`, the result also has `planSteps`, and it has `errors` when a plan step was not completed or an input was left unused. `warnings` appears when all expectations are negated or a plan step looks like it contains a value.
+With `--plan`, the result also has `planSteps`, and it has `errors` when a plan step was not completed or an input was left unused. A prompt run also gets an error when `--max-steps` ends it before its derived steps are done. `warnings` appears when all expectations are negated or a plan step looks like it contains a value.
 
 Exit codes:
 
@@ -660,7 +660,7 @@ A plan has at most 50 steps. Values never go in the plan: pass them with `--inpu
 - **click / submit:** the control Jev picks must be named in the step. Its visible name has to appear in the step text as whole words, ignoring accents, case, and punctuation. Put the name in quotes (`clic en "Enviar"`) to require an exact match. Explicit targets use the same matching as prompt targets.
 - **fill:** a natural-language fill consumes the pending inputs that have a field on the current screen, so a wizard can have one fill step per screen. The step ends when Jev finds no more matching fields. An explicit `fill` ends when its listed keys are used. If any provided input is still unused when the plan ends, the run fails.
 - **wait:** always waits for the page load event. Durations such as "3 seconds" are ignored, and generated code never sleeps for a fixed time.
-- **submit:** always high impact. A click is also high impact when the control's name looks like a submission (`submit`, `enviar`, `confirmar`, …), whatever the step says. High-impact clicks need `--approve`.
+- **submit:** always high impact. A click is also high impact when the control's name contains one of the submission words listed in [Dry run, execution, and step limits](#dry-run-execution-and-step-limits) (Spanish or English, such as `enviar` or `simulate`), whatever the step says. High-impact clicks need `--approve`.
 - Unlike prompt runs, a plan run continues after a high-impact click until its last step.
 
 The JSON result lists `planSteps`: each step's text, kind, whether Jev classified it, whether it was completed, and the target or input keys it used. If the step limit is reached first, or inputs are left unused, the result has `errors` and the exit code is `1`.
@@ -688,6 +688,10 @@ The prompt planner only derives generic steps: navigation to a named section, fi
 - **Extra entry click:** a prompt that asked to simulate a credit used to add a click on a fixed button label before filling the form. Name that click in a plan file instead (`- clic en "<button text>"`).
 - **Inferred result text:** one fixed result heading used to become a visible-text expectation. Declare result texts with `--expect 'text:<text>'`. Only the `botón …` phrasing is still inferred.
 - **Fill proposed on a button:** Cordy used to turn it into a navigation click on an entry button. It now returns `needs_review`, like any other action that does not fit the control. Use a plan step that names the button.
+
+### Prompt runs end with their derived steps
+
+A prompt run only executes the steps the planner derived. When they are done, Cordy checks the expectations and stops; it never asks Jev for another action. For example, `llena el formulario` only fills the form, and an English prompt such as `Go to the shipping quote section, fill in the form, and click Simulate.` only derives the fill step, so `Simulate` is never clicked. Use a plan file, or the Spanish verbs the planner recognizes (`simula`, `calcula`), for longer flows. If `--max-steps` ends a prompt run before its derived steps are done, the result has an error and the exit code is `1`.
 
 ## Supported actions and limits
 
