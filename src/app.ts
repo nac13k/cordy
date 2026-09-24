@@ -8,11 +8,11 @@ import { loadPlanFile, PLAN_TEMPLATE, planJsonSchema } from './plan-file.js';
 export const help = `cordy - natural-language Playwright automation with Jev
 
 Usage:
-  npx cordy "Complete the form" --start-url https://example.test --input email=ana@example.com
-  npx cordy --prompt-file ./task.txt --input ./inputs.json --headed --output ./automation.ts
-  npx cordy tests ./flows.spec.ts [--json]
-  npx cordy --plan ./plan.yaml --start-url https://example.test --input email=ana@example.com
-  npx cordy plan init [plan.yaml] | plan schema | plan check <file|->
+  npx @nac13k/cordy "Complete the form" --start-url https://example.test --input email=ana@example.com
+  npx @nac13k/cordy --prompt-file ./task.txt --input ./inputs.json --headed --output ./automation.ts
+  npx @nac13k/cordy tests ./flows.spec.ts [--json]
+  npx @nac13k/cordy --plan ./plan.yaml --start-url https://example.test --input email=ana@example.com
+  npx @nac13k/cordy plan init [plan.yaml] | plan schema | plan check <file|->
 
 Options:
   --input <key=value|file.json>  Repeatable input or JSON file

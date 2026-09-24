@@ -39,7 +39,7 @@ The Cordyceps reference also connects to the visual identity: a brain and a mush
 
 The name is short and memorable, but its meaning is intentional: the user expresses intent in natural language, Jev helps interpret it, Cordy controls the boundary and the sequence, and Playwright performs the verifiable browser work.
 
-> Cordy is designed for test flows. During a normal execution it fills the inputs, performs the selected final click, and stops immediately after that action. Do not use it against production systems or for irreversible operations without independent authorization.
+> Cordy is designed for test flows. It fills the inputs and runs the final high-impact click only when you pass `--approve`; a prompt run stops right after that click. Do not use it against production systems or for irreversible operations without independent authorization.
 
 ## Requirements
 
@@ -67,8 +67,10 @@ npx @nac13k/cordy --help
 To prevent `npx` from unexpectedly selecting a different version, pin the version:
 
 ```bash
-npx @nac13k/cordy@0.1.1 --help
+npx @nac13k/cordy@0.2.0 --help
 ```
+
+Always use the scoped name `@nac13k/cordy` with `npx`. The unscoped `cordy` package on npm is an unrelated project, so `npx @nac13k/cordy` can download and run it when Cordy is not installed in your project. The examples in this README use `npx @nac13k/cordy`, which also runs the locally installed version when there is one.
 
 Install Playwright browsers once per machine:
 
@@ -85,10 +87,10 @@ npm install --save-dev @nac13k/cordy
 npx playwright install chromium
 ```
 
-Run the local binary:
+Run the local binary (inside npm scripts you can call it as `cordy`):
 
 ```bash
-npx cordy "Complete the form" --start-url https://example.test
+npx @nac13k/cordy "Complete the form" --start-url https://example.test
 ```
 
 ### Global installation
@@ -120,7 +122,7 @@ JEV_API_KEY
 To change the variable name, create a configuration file:
 
 ```bash
-npx cordy init
+npx @nac13k/cordy init
 ```
 
 This creates `cordy.config.toml`:
@@ -140,7 +142,7 @@ max_steps = 20
 The configuration contains only the environment-variable name, never its value. You can also generate YAML:
 
 ```bash
-npx cordy init --format yaml
+npx @nac13k/cordy init --format yaml
 ```
 
 Cordy automatically discovers the first existing file in the current directory from this list:
@@ -154,7 +156,7 @@ cordy.config.yml
 Use `--config` to provide an explicit path:
 
 ```bash
-npx cordy --config ./config/cordy.config.toml \
+npx @nac13k/cordy --config ./config/cordy.config.toml \
   "Complete the form" \
   --start-url https://example.test
 ```
@@ -164,7 +166,7 @@ npx cordy --config ./config/cordy.config.toml \
 ```bash
 export JEV_API_KEY='your-jev-credential'
 
-npx cordy \
+npx @nac13k/cordy \
   "Complete the registration form" \
   --start-url https://example.test/registration \
   --input email=ana@example.com \
@@ -187,7 +189,7 @@ example.test
 To show the browser:
 
 ```bash
-npx cordy \
+npx @nac13k/cordy \
   "Complete the registration form" \
   --start-url https://example.test/registration \
   --input email=ana@example.com \
@@ -203,7 +205,7 @@ npx cordy \
 Repeat `--input` for every value required by the flow:
 
 ```bash
-npx cordy \
+npx @nac13k/cordy \
   "Get a shipping quote" \
   --start-url https://example.test \
   --input peso=2 \
@@ -231,7 +233,7 @@ Create `inputs.json`:
 Pass it with `--input`:
 
 ```bash
-npx cordy \
+npx @nac13k/cordy \
   --prompt-file ./task.txt \
   --input ./inputs.json \
   --start-url https://example.test
@@ -244,7 +246,7 @@ Do not store passwords or tokens in a versioned JSON file. Use a secret store or
 Pass files with `--file key=path`. Repeat the flag for each file input, and separate several files for one input with commas:
 
 ```bash
-npx cordy \
+npx @nac13k/cordy \
   "Completa el registro y sube la identificación" \
   --start-url https://example.test \
   --input name=Ana \
@@ -281,7 +283,7 @@ Inputs can contain safe templates that Cordy resolves once when each execution s
 Examples:
 
 ```bash
-npx cordy \
+npx @nac13k/cordy \
   "Complete the registration" \
   --start-url https://example.test \
   --input email='email+${timestamp()}@example.com' \
@@ -329,7 +331,7 @@ Get a shipping quote by entering the quote section, fill in the provided values,
 Run it:
 
 ```bash
-npx cordy \
+npx @nac13k/cordy \
   --prompt-file ./task.txt \
   --input ./inputs.json \
   --start-url https://example.test \
@@ -395,7 +397,7 @@ Every matcher `<m>` follows one rule:
 - `${input.<key>}` inserts the resolved value of a provided `--input`, so you can check that the result echoes what was submitted.
 
 ```bash
-npx cordy \
+npx @nac13k/cordy \
   "Complete the flow" \
   --start-url https://example.test \
   --input amount=10000 \
@@ -434,7 +436,7 @@ The older flags remain as aliases:
 `test` is the default output type:
 
 ```bash
-npx cordy \
+npx @nac13k/cordy \
   "Get a shipping quote and show the Save quote button as the expected result" \
   --start-url https://example.test \
   --input peso=2 \
@@ -450,7 +452,7 @@ The output imports `@playwright/test`, creates a `test(...)`, replays successful
 Use `automation` when you want a plain script instead of a Playwright test:
 
 ```bash
-npx cordy \
+npx @nac13k/cordy \
   "Complete the flow" \
   --start-url https://example.test \
   --input email=ana@example.com \
@@ -467,7 +469,7 @@ The output uses Playwright directly. When there are expectations, it also import
 Use `--test-name <slug>` to keep several Cordy tests in the same spec file. The slug uses lowercase letters, digits, and single hyphens (at most 64 characters). It also becomes the test title, so `npx playwright test -g <slug>` runs it. Named tests only work with `--output-kind test`.
 
 ```bash
-npx cordy "Get a shipping quote" --start-url https://example.test \
+npx @nac13k/cordy "Get a shipping quote" --start-url https://example.test \
   --output ./playwright/flows.spec.ts --test-name cotizar-envio
 ```
 
@@ -490,7 +492,7 @@ test('cotizar-envio', async ({ page }) => {
 Regenerate one test with a new instruction:
 
 ```bash
-npx cordy "Get a shipping quote with the new form" --start-url https://example.test \
+npx @nac13k/cordy "Get a shipping quote with the new form" --start-url https://example.test \
   --output ./playwright/flows.spec.ts --test-name cotizar-envio --update
 ```
 
@@ -499,7 +501,7 @@ Add `--diff` to run the flow and print the unified diff instead of writing the f
 List the Cordy-managed tests in a file to find their slugs:
 
 ```bash
-npx cordy tests ./playwright/flows.spec.ts
+npx @nac13k/cordy tests ./playwright/flows.spec.ts
 # SLUG           LINES  STATUS
 # cotizar-envio  4-20   ok
 # login          22-35  ok
@@ -512,7 +514,7 @@ npx cordy tests ./playwright/flows.spec.ts
 Plan without interacting with the site:
 
 ```bash
-npx cordy \
+npx @nac13k/cordy \
   "Complete the flow" \
   --start-url https://example.test \
   --input email=ana@example.com \
@@ -537,7 +539,7 @@ High-impact clicks (a `submit` step, or a control whose name looks like a submis
 For script integration:
 
 ```bash
-npx cordy \
+npx @nac13k/cordy \
   "Complete the flow" \
   --start-url https://example.test \
   --json > result.json
@@ -556,7 +558,9 @@ The result includes fields such as:
   ],
   "expectations": [
     {
+      "spec": "button:Save quote",
       "kind": "button",
+      "negated": false,
       "expected": "Save quote",
       "status": "passed"
     }
@@ -564,17 +568,21 @@ The result includes fields such as:
 }
 ```
 
+With `--plan`, the result also has `planSteps`, and it has `errors` when a plan step was not completed or an input was left unused. `warnings` appears when all expectations are negated or a plan step looks like it contains a value.
+
 Exit codes:
 
-- `0`: actions and expectations completed.
-- `1`: an action failed, an action was blocked, an expectation failed, or a configuration/execution error occurred.
+- `0`: no action failed, no expectation failed, and there are no `errors`.
+- `1`: an action failed, an expectation failed, the result has `errors`, or a configuration/execution error occurred.
+
+A **blocked** action (`needs_review`, or a high-impact click without `--approve`) stops the run but does not change the exit code by itself. In CI, check that every entry in `actions` has `status: "succeeded"`, or add `--expect` checks for the final state so a blocked run fails.
 
 ## Safe diagnostics
 
 Add `--verbose`:
 
 ```bash
-npx cordy \
+npx @nac13k/cordy \
   "Complete the flow" \
   --start-url https://example.test \
   --input email=ana@example.com \
@@ -618,7 +626,7 @@ steps:
 (The step texts are Spanish to show that any language works; `Regístrate` and `Crear cuenta` are the app's own labels.)
 
 ```bash
-npx cordy --plan ./plan.yaml \
+npx @nac13k/cordy --plan ./plan.yaml \
   --start-url https://example.test \
   --input name=Ana --input email=ana@example.com \
   --expect 'text:Welcome' \
@@ -648,9 +656,9 @@ The JSON result lists `planSteps`: each step's text, kind, whether Jev classifie
 ### Plan commands
 
 ```bash
-npx cordy plan init [plan.yaml]   # write a commented example (never overwrites)
-npx cordy plan schema             # print the JSON Schema, e.g. for LLM structured output
-npx cordy plan check plan.yaml    # validate offline, without Jev or a browser
+npx @nac13k/cordy plan init [plan.yaml]   # write a commented example (never overwrites)
+npx @nac13k/cordy plan schema             # print the JSON Schema, e.g. for LLM structured output
+npx @nac13k/cordy plan check plan.yaml    # validate offline, without Jev or a browser
 ```
 
 Validation errors name the location, for example `steps[2].fill: expected a list of input keys`, so an agent can fix the plan from the message.
@@ -704,7 +712,7 @@ npx playwright install --with-deps chromium
 Configure `JEV_API_KEY` through the CI provider's secret store, not through a commit or a variable written to logs. Run headless and preserve JSON as an artifact:
 
 ```bash
-npx cordy \
+npx @nac13k/cordy \
   --prompt-file ./tasks/simulation.txt \
   --input ./tasks/simulation.inputs.json \
   --start-url https://staging.example.test \
@@ -757,6 +765,10 @@ npm run build
 npm pack --dry-run
 npm publish
 ```
+
+npm never lets a version number be reused, even after it was unpublished, and after a whole package is unpublished no new version can be published for 24 hours. Always publish a new version number.
+
+When the repository has the "Publish to npm" workflow (`.github/workflows/publish.yml`), pushing a `v*` tag runs it: it checks that the tag matches `package.json`, runs the checks, and publishes with the npm token configured in the repository secrets.
 
 Before publishing a new version:
 

@@ -27,7 +27,7 @@ npx playwright install chromium
 For a one-off try:
 
 ```bash
-npx @nac13k/cordy@0.1.1 --help
+npx @nac13k/cordy@0.2.0 --help
 npx playwright install chromium
 ```
 
@@ -44,9 +44,9 @@ export JEV_API_KEY='...'
 Generate a template:
 
 ```bash
-npx cordy init
+npx @nac13k/cordy init
 # or
-npx cordy init --format yaml
+npx @nac13k/cordy init --format yaml
 ```
 
 The configuration uses `api_key_env`, not `api_key`:
@@ -80,7 +80,7 @@ ${faker.phone}
 Example:
 
 ```bash
-npx cordy \
+npx @nac13k/cordy \
   "Completa el registro" \
   --start-url https://example.test \
   --input email='correo+${timestamp()}@example.com' \
@@ -95,7 +95,7 @@ Templates are resolved once per run, in memory. `eval`, `process.env`, imports, 
 Use `--file key=path[,path...]`, or a typed entry `{ "type": "file", "path": "..." }` (or `"paths": [...]`) in the inputs JSON file:
 
 ```bash
-npx cordy \
+npx @nac13k/cordy \
   "Completa el registro y sube la identificación" \
   --start-url https://example.test \
   --file id_document=./fixtures/id.pdf
@@ -106,7 +106,7 @@ Paths are relative to the working directory (the project root), and each file mu
 ## 4. Full flow with inferred expectations
 
 ```bash
-npx cordy \
+npx @nac13k/cordy \
   "entra a la sección cotizador de envíos y simula un envío llenando el formulario y al simular debe de presentar como resultado esperado el resumen del envío y un botón de guardar cotización" \
   --start-url https://example.test \
   --input peso=2 \
@@ -128,9 +128,9 @@ Expectations are checked after the last click of the flow. The generated test ke
 When the prompt is not in Spanish, or the flow is not a simple form, describe the steps in a plan file:
 
 ```bash
-npx cordy plan init plan.yaml      # commented example
-npx cordy plan check plan.yaml     # offline validation
-npx cordy --plan plan.yaml --start-url https://example.test --input email=ana@example.com --approve
+npx @nac13k/cordy plan init plan.yaml      # commented example
+npx @nac13k/cordy plan check plan.yaml     # offline validation
+npx @nac13k/cordy --plan plan.yaml --start-url https://example.test --input email=ana@example.com --approve
 ```
 
 Each step is one natural-language instruction in any language, which Jev classifies as `click`, `fill`, `wait`, or `submit` before the browser opens. It can also be an explicit form: `{ click: X }`, `{ submit: X }`, `{ fill: [keys] }`, or `{ wait: load }`. Steps that combine two actions are rejected. Clicked controls must be named in the step text, and quoted names must match exactly. A natural-language `fill` consumes the inputs visible on the current screen, and every input must be used by the end of the plan. `wait` always waits for the page load. `cordy plan schema` prints the JSON Schema for agents that generate plans.
@@ -184,7 +184,7 @@ test('cotizar-envio', async ({ page }) => {
 - **Failures**: if any action or expectation fails, the file is not modified.
 
 ```bash
-npx cordy "Simula un envío con el formulario nuevo" \
+npx @nac13k/cordy "Simula un envío con el formulario nuevo" \
   --start-url https://staging.example.test \
   --output ./playwright/flows.spec.ts \
   --test-name cotizar-envio \
@@ -196,8 +196,8 @@ npx cordy "Simula un envío con el formulario nuevo" \
 To see which tests Cordy manages in a file and copy their slugs:
 
 ```bash
-npx cordy tests ./playwright/flows.spec.ts
-npx cordy tests ./playwright/flows.spec.ts --json
+npx @nac13k/cordy tests ./playwright/flows.spec.ts
+npx @nac13k/cordy tests ./playwright/flows.spec.ts --json
 ```
 
 `cordy tests` never opens the browser, and it exits with code `1` if it finds damaged markers or the file doesn't exist.
@@ -207,7 +207,7 @@ npx cordy tests ./playwright/flows.spec.ts --json
 Use `--dry-run` to inspect the plan without executing actions:
 
 ```bash
-npx cordy \
+npx @nac13k/cordy \
   "Completa el flujo" \
   --start-url https://staging.example.test \
   --input email=ana@example.com \
@@ -264,7 +264,7 @@ means local validation rejected an action/role combination. Don't disable that p
 Run with `--json` and check `expectations`:
 
 ```bash
-npx cordy ... --json > result.json
+npx @nac13k/cordy ... --json > result.json
 ```
 
 Each record has `kind`, `expected`, and `status`. A `failed` expectation returns exit code `1`.
@@ -277,7 +277,7 @@ Example:
 npm ci
 npx playwright install --with-deps chromium
 
-npx cordy \
+npx @nac13k/cordy \
   --prompt-file tasks/flow.txt \
   --input tasks/flow.inputs.json \
   --start-url https://staging.example.test \
