@@ -1,8 +1,41 @@
-# cordy
+<p align="center">
+  <img src="docs/assets/cordy-logo.jpg" alt="Cordy — Playwright AI automated control" width="420" />
+</p>
 
-CLI TypeScript para ejecutar automatizaciones Playwright descritas en lenguaje natural y coordinadas por Jev.
+<p align="center">
+  <strong>Playwright AI // Automated Control</strong><br />
+  Automatización de pruebas web guiada por lenguaje natural.
+</p>
 
-Cordy observa la página actual, envía a Jev únicamente un estado reducido y redactado, valida localmente la acción estructurada recibida y deja que Playwright ejecute la interacción.
+# Cordy
+
+Cordy es un CLI TypeScript para diseñar y ejecutar automatizaciones de Playwright a partir de instrucciones en lenguaje natural. Combina la interpretación semántica de Jev con validaciones locales y una ejecución controlada en el navegador.
+
+## ¿Para qué sirve?
+
+Cordy sirve para convertir una instrucción como:
+
+```text
+Entra a la sección de cotizador de envios, completa el formulario y pulsa Simular.
+```
+
+en un flujo de prueba reproducible:
+
+1. Observa los controles visibles de la página.
+2. Construye y valida un plan ordenado de pasos.
+3. Pide a Jev únicamente la decisión estructurada del paso actual.
+4. Valida localmente el locator, el rol y la acción propuesta.
+5. Deja que Playwright ejecute la interacción.
+6. Comprueba las expectativas explícitas del resultado.
+7. Puede generar una prueba TypeScript lista para `@playwright/test`.
+
+Cordy no permite que Jev ejecute JavaScript o Playwright arbitrario. Jev propone decisiones estructuradas; Cordy conserva el control del flujo y Playwright ejecuta las acciones permitidas.
+
+## ¿Por qué se llama Cordy?
+
+El nombre **Cordy** hace referencia a la idea de un organismo que conecta y coordina sistemas. La identidad visual combina un cerebro y un hongo sobre una red de ramas: representa la unión entre razonamiento semántico, automatización y los caminos que atraviesa una prueba dentro de una aplicación web.
+
+También es un nombre corto y fácil de recordar para una herramienta cuyo propósito es coordinar el control automatizado del navegador: el lenguaje natural expresa la intención, Jev ayuda a interpretarla y Playwright realiza el trabajo verificable.
 
 > Cordy está diseñado para flujos de prueba. En una ejecución normal completa los inputs, ejecuta el último clic seleccionado y detiene el flujo después de esa acción. No lo uses contra producción ni para operaciones irreversibles sin autorización independiente.
 
