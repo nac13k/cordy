@@ -30,6 +30,8 @@ export const LocatorStrategy = z.enum([
 export const LocatorSpec = z.object({
   strategy: LocatorStrategy,
   value: z.string(),
+  /** Zero-based position among the locator's matches, when it matches several elements. */
+  nth: z.number().int().min(0).optional(),
   confidence: z.number().min(0).max(1),
   evidenceId: z.string(),
 });
@@ -88,7 +90,11 @@ export type InteractiveElement = {
   valueState: 'empty' | 'filled' | 'secret_or_redacted';
   visible: boolean;
   enabled: boolean;
-  locatorCandidates: Array<{ strategy: z.infer<typeof LocatorStrategy>; value: string }>;
+  locatorCandidates: Array<{
+    strategy: z.infer<typeof LocatorStrategy>;
+    value: string;
+    nth?: number;
+  }>;
 };
 export type BrowserState = {
   task: string;

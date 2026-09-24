@@ -2,6 +2,7 @@ import { chromium, type Browser, type Page } from '@playwright/test';
 import { readFile, writeFile } from 'node:fs/promises';
 import type { ParsedOptions } from './cli-options.js';
 import { loadInputs, loadPrompt } from './inputs.js';
+import { locatorExpression, locatorFor } from './locators.js';
 import { loadPlanFile, planTask, planValueWarnings } from './plan-file.js';
 import { planFromPrompt } from './prompt-steps.js';
 import {
@@ -51,17 +52,6 @@ function inlineInputSource(values: Record<string, string>) {
         `${JSON.stringify(key)}:${isSensitiveInputKey(key) ? `process.env[${JSON.stringify(key)}] ?? ''` : JSON.stringify(value)}`,
     )
     .join(',')}})`;
-}
-function locatorFor(page: Page, locator: { strategy: string; value: string }) {
-  if (locator.strategy === 'getByLabel') return page.getByLabel(locator.value);
-  if (locator.strategy === 'getByPlaceholder') return page.getByPlaceholder(locator.value);
-  if (locator.strategy === 'getByText') return page.getByText(locator.value);
-  if (locator.strategy === 'testId') return page.getByTestId(locator.value);
-  if (locator.strategy === 'getByRole') {
-    const [role, ...name] = locator.value.split(':');
-    return page.getByRole(role as 'button' | 'textbox' | 'combobox', { name: name.join(':') });
-  }
-  return page.locator(locator.value);
 }
 
 function cordyImportNames(actions: ActionRecord[], expectations: Expectation[]) {
@@ -196,19 +186,6 @@ function describePlanStep(step: PlanStep) {
   return step.text ? `"${step.text}"` : `${step.kind}${step.target ? `: ${step.target}` : ''}`;
 }
 
-function locatorExpression(locator: { strategy: string; value: string }) {
-  const value = JSON.stringify(locator.value);
-  if (locator.strategy === 'getByLabel') return `getByLabel(${value})`;
-  if (locator.strategy === 'getByPlaceholder') return `getByPlaceholder(${value})`;
-  if (locator.strategy === 'getByText') return `getByText(${value})`;
-  if (locator.strategy === 'testId') return `getByTestId(${value})`;
-  if (locator.strategy === 'getByRole') {
-    const [role, ...name] = locator.value.split(':');
-    return `getByRole(${JSON.stringify(role)}, { name: ${JSON.stringify(name.join(':'))} })`;
-  }
-  return `locator(${value})`;
-}
-
 function requireInput(inputs: Record<string, string>, key: string) {
   if (!Object.prototype.hasOwnProperty.call(inputs, key)) throw new Error(`missing input: ${key}`);
   return inputs[key];
@@ -257,6 +234,33 @@ export async function execute(
       error: error instanceof Error ? error.message : 'unknown error',
     };
   }
+}
+
+/** Why a run did not fully succeed, or undefined when it did. Used for unwritten output. */
+export function unsuccessfulRunReason(
+  steps: PlanStep[],
+  actions: ActionRecord[],
+  recordSteps: number[],
+  errors: string[],
+  expectations: Array<{ spec: string; status: string }>,
+) {
+  const index = actions.findIndex((record) => record.status !== 'succeeded');
+  if (index >= 0) {
+    const record = actions[index];
+    const step = steps.find((item) => item.index === recordSteps[index]);
+    const detail = (record.error ?? ('reason' in record.action ? record.action.reason : ''))
+      .split('\n')[0]
+      .trim();
+    const where = step ? `step ${step.index + 1} (${describePlanStep(step)})` : 'an action';
+    const hint =
+      record.status === 'blocked' && record.error === 'requires --approve'
+        ? '; rerun with --approve to allow it'
+        : '';
+    return `${where} was ${record.status}${detail ? `: ${detail}` : ''}${hint}`;
+  }
+  if (errors.length > 0) return errors[0];
+  const failed = expectations.find((expectation) => expectation.status === 'failed');
+  return failed ? `expectation ${failed.spec} failed` : undefined;
 }
 
 async function readOptional(file: string) {
@@ -427,6 +431,7 @@ export async function runCordy(options: ParsedOptions, config?: CordyConfig) {
       ...(errors.length ? { errors } : {}),
       ...(warnings.length ? { warnings } : {}),
     };
+    const skipReason = unsuccessfulRunReason(steps, actions, recordSteps, errors, expectations);
     if (options.output) {
       const inputSource: GeneratedInputSource = options.inputFile
         ? { kind: 'file', path: options.inputFile, files }
@@ -438,10 +443,8 @@ export async function runCordy(options: ParsedOptions, config?: CordyConfig) {
         update: options.update,
         dryRun: options.dryRun,
         diff: options.diff,
-        succeeded:
-          errors.length === 0 &&
-          actions.every((record) => record.status === 'succeeded') &&
-          expectations.every((expectation) => expectation.status !== 'failed'),
+        succeeded: !skipReason,
+        reason: skipReason,
         requiredImports: requiredImports(inputSource, actions, expectationSpecs),
         renderFile: () =>
           generateTypeScript(actions, startUrl, options.outputKind, expectationSpecs, inputSource),

@@ -301,16 +301,16 @@ npx @nac13k/cordy \
 
 Supported expressions:
 
-| Expression | Result |
-|---|---|
-| `${timestamp()}` | Unix timestamp in milliseconds |
-| `${randInt()}` | Random integer between `0` and `2147483647` |
-| `${randInt(10, 99)}` | Inclusive random integer in the range |
-| `${faker.name}` | Generated full name |
-| `${faker.email}` | Generated email address |
-| `${faker.firstName}` | Generated first name |
-| `${faker.lastName}` | Generated last name |
-| `${faker.phone}` | Generated phone number |
+| Expression           | Result                                      |
+| -------------------- | ------------------------------------------- |
+| `${timestamp()}`     | Unix timestamp in milliseconds              |
+| `${randInt()}`       | Random integer between `0` and `2147483647` |
+| `${randInt(10, 99)}` | Inclusive random integer in the range       |
+| `${faker.name}`      | Generated full name                         |
+| `${faker.email}`     | Generated email address                     |
+| `${faker.firstName}` | Generated first name                        |
+| `${faker.lastName}`  | Generated last name                         |
+| `${faker.phone}`     | Generated phone number                      |
 
 Templates are resolved in memory and the resulting values are still never sent to Jev. An unsupported expression fails before the browser is executed.
 
@@ -362,16 +362,16 @@ Cordy never infers expectations from the prompt. Declare every check explicitly 
 
 Declare expectations with the repeatable `--expect '[not-]<kind>:<arg>'` flag. Cordy splits the spec at the first `:`, so arguments such as URLs keep their own colons.
 
-| Kind | Argument | Passes when |
-|---|---|---|
-| `text` | `<m>` | a visible element's text matches |
-| `button` | `<m>` | a visible button's accessible name matches |
-| `button-enabled` / `button-disabled` | `<m>` | a button whose name matches is enabled / disabled |
-| `url` | `<m>` | the page URL matches |
-| `title` | `<m>` | the page title matches |
-| `value` | `<label>=<m>` | the form control with that label has a matching value (split at the first `=`) |
-| `checked` / `unchecked` | `<label>` | the control with that label is checked / unchecked |
-| `count` | `<m>=<n>` | exactly `<n>` elements have matching text (split at the last `=`) |
+| Kind                                 | Argument      | Passes when                                                                    |
+| ------------------------------------ | ------------- | ------------------------------------------------------------------------------ |
+| `text`                               | `<m>`         | a visible element's text matches                                               |
+| `button`                             | `<m>`         | a visible button's accessible name matches                                     |
+| `button-enabled` / `button-disabled` | `<m>`         | a button whose name matches is enabled / disabled                              |
+| `url`                                | `<m>`         | the page URL matches                                                           |
+| `title`                              | `<m>`         | the page title matches                                                         |
+| `value`                              | `<label>=<m>` | the form control with that label has a matching value (split at the first `=`) |
+| `checked` / `unchecked`              | `<label>`     | the control with that label is checked / unchecked                             |
+| `count`                              | `<m>=<n>`     | exactly `<n>` elements have matching text (split at the last `=`)              |
 
 Prefix any kind except `count` with `not-` to require the opposite, for example `not-text:required field`.
 
@@ -474,7 +474,7 @@ test('cotizar-envio', async ({ page }) => {
 - With `--update`, Cordy replaces the existing block in place. If the slug does not exist, it fails.
 - Shared imports are merged into the file header without duplicates.
 - Conflicts and damaged markers (a missing `cordy:end`, nested blocks, duplicate slugs) are reported before the browser opens, and the file is never written.
-- If any action or expectation fails, the file is left unchanged, so a failed update never overwrites a working test.
+- If any action or expectation fails, the file is left unchanged, so a failed update never overwrites a working test. The message says why, for example `flows.spec.ts left unchanged: step 4 ("da click en simular") was blocked: requires --approve; rerun with --approve to allow it`.
 
 Regenerate one test with a new instruction:
 
@@ -602,7 +602,7 @@ A plan file holds the same natural-language steps as a prompt, plus an optional 
 
 ```yaml
 version: 1
-description: Register a new account   # optional; sent to Jev, so no real values
+description: Register a new account # optional; sent to Jev, so no real values
 steps:
   - da clic en la sección "Regístrate"
   - espera a que cargue
@@ -694,6 +694,19 @@ Jev can only propose structured actions from this set:
 - `needs_review`.
 
 Jev does not execute JavaScript, does not write Playwright code, and does not receive real input values. Playwright executes an action only after local validation against the controls observed on the current page.
+
+### Observed controls
+
+Cordy observes visible:
+
+- form fields, buttons, and links with `href`;
+- elements with role `button`, `link`, `checkbox`, `radio`, `tab`, `menuitem` (and its checkbox/radio variants), `option`, or `switch`;
+- `<summary>`, `<a>` without `href`, and elements with an `onclick` attribute;
+- clickable cards and custom controls: the outermost elements shown with a pointer cursor that have 1 to 80 characters of text and contain no other observed control.
+
+Elements without an ARIA role, such as cards, are reported as `clickable`, named after their first line of text, and located with `getByText`. Jev can only click them.
+
+When several elements share a name (for example, the same `Get a quote` link in four sections), Cordy pins the one Jev chose with its position, and the generated code does the same: `page.getByRole("link", { name: "Get a quote" }).nth(2)`. That position follows the page order, so a generated test can break if the page reorders identical controls. Give them distinct names or ids when you control the page.
 
 Cordy blocks, among other cases:
 

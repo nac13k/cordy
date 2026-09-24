@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { parseCliArgs } from '../src/cli-options.js';
-import { runCordy } from '../src/run.js';
+import { runCordy, unsuccessfulRunReason } from '../src/run.js';
 
 describe('plan file runs', () => {
   let dir: string;
@@ -294,7 +294,9 @@ describe('plan file runs', () => {
       expect(result.errors).toBeUndefined();
     }, 60_000);
 
-    it('blocks a submit step without --approve', async () => {
+    it('blocks a submit step without --approve and says why the output was not written', async () => {
+      const output = join(dir, 'blocked.spec.ts');
+      await writeFile(output, '');
       fakeJev(
         [
           { action: 'fill', target: 'el_2', input_key: 'peso' },
@@ -309,6 +311,10 @@ describe('plan file runs', () => {
           await quotePage(),
           '--input',
           'peso=2',
+          '--output',
+          output,
+          '--test-name',
+          'quote',
         ]),
       );
       expect(kinds(result)).toEqual([
@@ -316,6 +322,12 @@ describe('plan file runs', () => {
         ['click', 'blocked'],
       ]);
       expect(result.actions[1].error).toBe('requires --approve');
+      expect(result.output).toEqual({
+        file: output,
+        written: false,
+        message: `${output} left unchanged: step 2 ("click "Simulate"") was blocked: requires --approve; rerun with --approve to allow it`,
+      });
+      expect(await readFile(output, 'utf8')).toBe('');
     }, 30_000);
 
     it('fails when an input is not used', async () => {
@@ -390,6 +402,55 @@ describe('plan file runs', () => {
     }, 30_000);
   });
 
+  it('clicks the chosen one of several identical links and pins it in generated code', async () => {
+    const page = join(dir, 'repeated.html');
+    await writeFile(
+      page,
+      [1, 2, 3, 4]
+        .map((n) => `<section><a href="#from-${n}">Cotiza tu envío</a></section>`)
+        .join('') + '<div style="cursor:pointer"><h3>Envío express</h3><p>Llega mañana</p></div>',
+    );
+    fakeJev(
+      [
+        { action: 'click', target: 'el_3', input_key: 'none' },
+        { action: 'click', target: 'el_5', input_key: 'none' },
+      ],
+      [{ step_0: 'click', step_1: 'click' }],
+    );
+    const output = join(dir, 'repeated.spec.ts');
+    // Spanish step texts on purpose: prompt steps may be written in any language.
+    const result = await runCordy(
+      parseCliArgs([
+        'clic en "Cotiza tu envío", clic en "Envío express"',
+        '--start-url',
+        pathToFileURL(page).href,
+        '--expect',
+        'url:#from-3',
+        '--output',
+        output,
+      ]),
+    );
+    expect(result.actions.map((record) => [record.status, record.action])).toEqual([
+      [
+        'succeeded',
+        expect.objectContaining({
+          kind: 'click',
+          locator: expect.objectContaining({ value: 'link:Cotiza tu envío', nth: 2 }),
+        }),
+      ],
+      [
+        'succeeded',
+        expect.objectContaining({
+          locator: expect.objectContaining({ strategy: 'getByText', value: 'Envío express' }),
+        }),
+      ],
+    ]);
+    expect(result.expectations[0]).toMatchObject({ status: 'passed' });
+    expect(await readFile(output, 'utf8')).toContain(
+      'page.getByRole("link", { name: "Cotiza tu envío" }).nth(2).click()',
+    );
+  }, 60_000);
+
   it('blocks a click on an English submission button in a plan step without --approve', async () => {
     const page = join(dir, 'simulate.html');
     await writeFile(page, '<button>Simulate</button>');
@@ -407,4 +468,36 @@ describe('plan file runs', () => {
       }),
     ]);
   }, 30_000);
+});
+
+describe('unsuccessful run reasons', () => {
+  const step = { index: 1, kind: 'click' as const, workflowKind: 'click', anchor: 'free' as const };
+  const click = {
+    kind: 'click' as const,
+    locator: { strategy: 'getByText' as const, value: 'Go', confidence: 1, evidenceId: 'o' },
+    reason: 'r',
+    highImpact: false,
+  };
+  it('names a failed action with the first line of its error', () => {
+    expect(
+      unsuccessfulRunReason(
+        [{ ...step, text: 'clic en "Go"' }],
+        [{ action: click, status: 'failed', error: 'locator.click: Timeout\nCall log: ...' }],
+        [1],
+        [],
+        [],
+      ),
+    ).toBe('step 2 ("clic en "Go"") was failed: locator.click: Timeout');
+  });
+  it('falls back to the first error, then the first failed expectation', () => {
+    expect(unsuccessfulRunReason([], [], [], ['Plan step 2 was not completed'], [])).toBe(
+      'Plan step 2 was not completed',
+    );
+    expect(
+      unsuccessfulRunReason([], [], [], [], [{ spec: 'text:Resumen', status: 'failed' }]),
+    ).toBe('expectation text:Resumen failed');
+    expect(unsuccessfulRunReason([], [], [], [], [{ spec: 'text:A', status: 'passed' }])).toBe(
+      undefined,
+    );
+  });
 });

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Cordy is a TypeScript (ESM, Node >= 20) CLI and library that runs Playwright browser flows from natural-language instructions. An external reasoning service, **Jev**, only *proposes* structured decisions. Cordy validates them locally, and Playwright executes them. `README.md` is the user-facing reference for CLI flags, config, and dynamic inputs. `docs/USAGE.md` is a longer usage guide.
+Cordy is a TypeScript (ESM, Node >= 20) CLI and library that runs Playwright browser flows from natural-language instructions. An external reasoning service, **Jev**, only _proposes_ structured decisions. Cordy validates them locally, and Playwright executes them. `README.md` is the user-facing reference for CLI flags, config, and dynamic inputs. `docs/USAGE.md` is a longer usage guide.
 
 ## Language
 
@@ -39,8 +39,8 @@ Execution flow (`src/run.ts` → `runCordy`):
    - `JevClient.classifySteps` classifies the natural-language steps as `click`/`fill`/`wait`/`submit` before the browser launches, and rejects `compound` steps.
    - `stepsFromPlanFile` turns the plan into `PlanStep[]` (`plan-steps.ts`), executed with an explicit cursor. For a prompt, the task sent to Jev is the prompt text.
 4. **Step loop** (up to `maxSteps`):
-   - `observe.ts:observePage` collects interactive elements with locator candidates and a redacted `valueState` (`empty`/`filled`/`secret_or_redacted`). It never collects values.
-   - `jev.ts:JevClient.nextAction` sends the state, input *names only*, and the current workflow step's allowed actions to Jev as `choice` questions. It then validates the answer locally: the action must be allowed for the step, the target must exist, the role must be compatible, and `matchesTarget` must match the step target. On any mismatch it returns `needs_review` instead of throwing.
+   - `observe.ts:observePage` collects interactive elements with locator candidates and a redacted `valueState` (`empty`/`filled`/`secret_or_redacted`). It never collects values. Besides semantic controls it observes tabs/menu items/options/switches, `summary`, `a` without `href`, `[onclick]`, and outermost `cursor: pointer` elements; those without an ARIA role get role `clickable` and a `getByText` candidate for their first text line. When a first candidate matches several elements, `pinAmbiguousCandidates` adds `nth` using Playwright's own matching, and `locators.ts` applies and renders it as `.nth(n)`.
+   - `jev.ts:JevClient.nextAction` sends the state, input _names only_, and the current workflow step's allowed actions to Jev as `choice` questions. It then validates the answer locally: the action must be allowed for the step, the target must exist, the role must be compatible, and `matchesTarget` must match the step target. On any mismatch it returns `needs_review` instead of throwing.
    - `run.ts:execute` maps a `PlannedAction` to a Playwright call through `locatorFor`. A final-impact click is downgraded to `needs_review` if visible textboxes are still empty.
    - Natural-language click/submit targets must be anchored in the step text (`jev.ts:anchoredIn`). A natural-language fill step ends when Jev picks no input key (`step_complete`).
    - `submit` steps force `highImpact`, and high-impact clicks require `--approve` in both modes.

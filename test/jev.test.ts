@@ -54,6 +54,43 @@ describe('Jev planner', () => {
     expect(action.kind).toBe('fill');
     if (action.kind === 'fill') expect(action.inputKey).toBe('email');
   });
+  describe('clickable elements', () => {
+    const card = {
+      ...state.interactiveElements[0],
+      id: 'el_2',
+      role: 'clickable',
+      name: 'Envío express',
+      locatorCandidates: [{ strategy: 'getByText' as const, value: 'Envío express', nth: 1 }],
+    };
+    const answer = (action: string, inputKey: string) =>
+      new JevClient({
+        apiKey: 'test-only',
+        fetcher: vi.fn(
+          async () =>
+            new Response(
+              JSON.stringify({
+                answers: {
+                  action: { choice: action },
+                  target: { choice: 'el_2' },
+                  input_key: { choice: inputKey },
+                },
+              }),
+            ),
+        ),
+      }).nextAction({ ...state, interactiveElements: [card] }, { note: 'x' });
+    it('allows a click and keeps the pinned position', async () => {
+      expect(await answer('click', 'none')).toMatchObject({
+        kind: 'click',
+        locator: { strategy: 'getByText', value: 'Envío express', nth: 1 },
+      });
+    });
+    it.each(['fill', 'select', 'check'])('rejects %s on a clickable element', async (action) => {
+      expect(await answer(action, 'note')).toMatchObject({
+        kind: 'needs_review',
+        reason: `Jev proposed ${action} on an element with role=clickable`,
+      });
+    });
+  });
   it('emits safe verbose traces without the credential, input values, or query string', async () => {
     const logs: string[] = [];
     const fetcher = vi.fn(

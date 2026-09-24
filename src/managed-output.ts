@@ -172,6 +172,8 @@ export function decideOutput(input: {
   dryRun: boolean;
   diff: boolean;
   succeeded: boolean;
+  /** Why the run did not succeed, shown when managed output is left unchanged. */
+  reason?: string;
   requiredImports: RequiredImport[];
   renderFile: () => string;
   renderBlock: () => string;
@@ -189,7 +191,9 @@ export function decideOutput(input: {
     return { diff: header, message: `dry-run: ${action} in ${file}; nothing was written` };
   }
   if (testName && !input.succeeded)
-    return { message: `${file} left unchanged: the run did not fully succeed` };
+    return {
+      message: `${file} left unchanged: ${input.reason ?? 'the run did not fully succeed'}`,
+    };
   const next = testName
     ? applyManagedWrite(current, testName, input.renderBlock(), input.requiredImports, input.update)
     : input.renderFile();

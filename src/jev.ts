@@ -399,6 +399,7 @@ export class JevClient {
     const locator = {
       strategy: candidate.strategy,
       value: candidate.value,
+      ...(candidate.nth === undefined ? {} : { nth: candidate.nth }),
       confidence: 0.5,
       evidenceId: state.observationId,
     } as const;
