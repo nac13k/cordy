@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isValidTestSlug, TEST_SLUG_MAX_LENGTH } from './managed-output.js';
 
 export const ParsedOptions = z.object({
   task: z.string().optional(),
@@ -10,6 +11,9 @@ export const ParsedOptions = z.object({
   dryRun: z.boolean(),
   output: z.string().optional(),
   outputKind: z.enum(['test', 'automation']),
+  testName: z.string().optional(),
+  update: z.boolean(),
+  diff: z.boolean(),
   expectVisible: z.array(z.string()),
   expectButtons: z.array(z.string()),
   expectUrl: z.array(z.string()),
@@ -35,6 +39,8 @@ export function parseCliArgs(args: string[]): ParsedOptions {
     headed: false,
     dryRun: false,
     outputKind: 'test',
+    update: false,
+    diff: false,
     expectVisible: [],
     expectButtons: [],
     expectUrl: [],
@@ -64,6 +70,9 @@ export function parseCliArgs(args: string[]): ParsedOptions {
     else if (arg === '--prompt-file') options.promptFile = next();
     else if (arg === '--config') options.configFile = next();
     else if (arg === '--output') options.output = next();
+    else if (arg === '--test-name') options.testName = next();
+    else if (arg === '--update') options.update = true;
+    else if (arg === '--diff') options.diff = true;
     else if (arg === '--output-kind') {
       const value = next();
       if (value !== 'test' && value !== 'automation')
@@ -91,5 +100,19 @@ export function parseCliArgs(args: string[]): ParsedOptions {
   if (positional[0] && options.promptFile)
     throw new Error('the positional instruction and --prompt-file are mutually exclusive');
   options.task = positional[0];
+  if (options.testName !== undefined) {
+    if (!isValidTestSlug(options.testName))
+      throw new Error(
+        `--test-name must be a lowercase slug (a-z, 0-9 and single hyphens, e.g. cotizar-envio) of at most ${TEST_SLUG_MAX_LENGTH} characters`,
+      );
+    if (!options.output) throw new Error('--test-name requires --output');
+    if (options.outputKind !== 'test')
+      throw new Error('--test-name only applies to --output-kind test');
+  }
+  if (options.update && options.testName === undefined)
+    throw new Error('--update requires --test-name');
+  if (options.diff && !options.output) throw new Error('--diff requires --output');
+  if (options.diff && options.dryRun)
+    throw new Error('--diff and --dry-run are mutually exclusive');
   return ParsedOptions.parse(options);
 }

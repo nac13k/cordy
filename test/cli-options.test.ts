@@ -44,4 +44,51 @@ describe('cordy CLI options', () => {
   it('rejects both positional task and prompt file', () => {
     expect(() => parseCliArgs(['task', '--prompt-file', 'task.md'])).toThrow(/mutually exclusive/);
   });
+
+  it('parses managed test flags', () => {
+    expect(
+      parseCliArgs([
+        'task',
+        '--output',
+        'flows.spec.ts',
+        '--test-name',
+        'login',
+        '--update',
+        '--diff',
+      ]),
+    ).toMatchObject({ testName: 'login', update: true, diff: true });
+  });
+  it('rejects invalid test slugs', () => {
+    expect(() =>
+      parseCliArgs(['task', '--output', 'f.spec.ts', '--test-name', 'Cotizar_Envio']),
+    ).toThrow(/slug/);
+    expect(() =>
+      parseCliArgs(['task', '--output', 'f.spec.ts', '--test-name', 'a'.repeat(65)]),
+    ).toThrow(/slug/);
+  });
+  it('requires --output and test output kind for --test-name', () => {
+    expect(() => parseCliArgs(['task', '--test-name', 'login'])).toThrow(/requires --output/);
+    expect(() =>
+      parseCliArgs([
+        'task',
+        '--output',
+        'f.ts',
+        '--output-kind',
+        'automation',
+        '--test-name',
+        'login',
+      ]),
+    ).toThrow(/--output-kind test/);
+  });
+  it('requires --test-name for --update', () => {
+    expect(() => parseCliArgs(['task', '--output', 'f.spec.ts', '--update'])).toThrow(
+      /--update requires --test-name/,
+    );
+  });
+  it('validates --diff combinations', () => {
+    expect(() => parseCliArgs(['task', '--diff'])).toThrow(/--diff requires --output/);
+    expect(() => parseCliArgs(['task', '--output', 'f.spec.ts', '--diff', '--dry-run'])).toThrow(
+      /mutually exclusive/,
+    );
+  });
 });

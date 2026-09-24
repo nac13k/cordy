@@ -405,6 +405,51 @@ The output uses Playwright directly and waits for the visibility of explicit exp
 
 `--output` is optional. Without it, Cordy does not write an automation file.
 
+### Several named tests in one file
+
+Use `--test-name <slug>` to keep several Cordy tests in the same spec file. The slug uses lowercase letters, digits, and single hyphens (at most 64 characters). It also becomes the test title, so `npx playwright test -g <slug>` runs it. Named tests only work with `--output-kind test`.
+
+```bash
+npx cordy "Get a shipping quote" --start-url https://example.test \
+  --output ./playwright/flows.spec.ts --test-name cotizar-envio
+```
+
+Cordy wraps the test in marker comments and leaves everything outside them untouched:
+
+```ts
+// cordy:begin cotizar-envio
+test('cotizar-envio', async ({ page }) => {
+  // ...
+});
+// cordy:end cotizar-envio
+```
+
+- Without `--update`, the block is appended to the end of the file (created if missing). If a test with that slug already exists, Cordy fails and suggests `--update`.
+- With `--update`, Cordy replaces the existing block in place. If the slug does not exist, it fails.
+- Shared imports are merged into the file header without duplicates.
+- Conflicts and damaged markers (a missing `cordy:end`, nested blocks, duplicate slugs) are reported before the browser opens, and the file is never written.
+- If any action or expectation fails, the file is left unchanged, so a failed update never overwrites a working test.
+
+Regenerate one test with a new instruction:
+
+```bash
+npx cordy "Get a shipping quote with the new form" --start-url https://example.test \
+  --output ./playwright/flows.spec.ts --test-name cotizar-envio --update
+```
+
+Add `--diff` to run the flow and print the unified diff instead of writing the file. `--diff` works with or without `--test-name` and cannot be combined with `--dry-run`.
+
+List the Cordy-managed tests in a file to find their slugs:
+
+```bash
+npx cordy tests ./playwright/flows.spec.ts
+# SLUG             LINES  STATUS
+# cotizar-envio  4-20   ok
+# login            22-35  ok
+```
+
+`cordy tests` never opens a browser. It supports `--json` and exits with code `1` when it finds damaged markers or the file does not exist.
+
 ## Dry run, execution, and step limits
 
 Plan without interacting with the site:
@@ -425,6 +470,8 @@ Limit the number of decisions:
 ```
 
 The allowed value is between `1` and `100`; the default is `20`.
+
+`--dry-run` never writes the `--output` file. With `--test-name`, it prints a preview instead: the import changes as a diff, and whether the test would be appended or replaced (with its current lines). Insert/update conflicts are still reported. Earlier versions wrote a nearly empty file during a dry run.
 
 `--approve` is retained for CLI compatibility. Cordy's current behavior treats executions as test flows and permits the final impact click to complete the flow, stopping immediately afterward. The action must still pass local validation of the role, locator, and page state.
 

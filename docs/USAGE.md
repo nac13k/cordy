@@ -1,53 +1,55 @@
-# Guía de uso de Cordy
+# Cordy Usage Guide
 
-Esta guía amplía el README para equipos que instalarán Cordy desde npm y lo usarán para flujos Playwright reproducibles.
+This guide expands on the README for teams that install Cordy from npm and use it for reproducible Playwright flows.
 
-## 1. Modelo mental
+## 1. Mental model
 
-Cordy separa cuatro responsabilidades:
+Cordy separates four responsibilities:
 
-1. El usuario describe el flujo y proporciona inputs explícitos.
-2. Cordy observa controles accesibles y estado reducido de la página.
-3. Jev propone una acción estructurada dentro del conjunto permitido.
-4. Cordy valida y Playwright ejecuta la acción.
+1. The user describes the flow and provides explicit inputs.
+2. Cordy observes accessible controls and a reduced page state.
+3. Jev proposes a structured action from the allowed set.
+4. Cordy validates the action and Playwright executes it.
 
-Jev no es un ejecutor de código. No recibe API keys, cookies, headers de autorización, valores reales de inputs, HTML completo ni texto completo de la página.
+Jev is not a code executor. It never receives API keys, cookies, authorization headers, real input values, full HTML, or full page text.
 
-## 2. Instalación recomendada
+> **Prompt language:** Cordy's workflow planner and expectation inference currently match Spanish phrasing (for example `entra a la seccion ...`, `resultado esperado`, `boton de ...`). The example prompts in this guide are therefore kept in Spanish on purpose: they are input data for Cordy, not documentation prose.
 
-Para un proyecto de pruebas:
+## 2. Recommended installation
+
+For a test project:
 
 ```bash
 npm install --save-dev cordy
 npx playwright install chromium
 ```
 
-Para una prueba puntual:
+For a one-off try:
 
 ```bash
 npx cordy@0.1.0 --help
 npx playwright install chromium
 ```
 
-Cordy requiere Node.js `>=20`. El paquete publica el binario `cordy` y la API ESM en `dist`.
+Cordy requires Node.js `>=20`. The package publishes the `cordy` binary and the ESM API in `dist`.
 
-## 3. Variables y configuración
+## 3. Environment and configuration
 
-Configura el secreto en el entorno:
+Set the secret in the environment:
 
 ```bash
 export JEV_API_KEY='...'
 ```
 
-Genera una plantilla:
+Generate a template:
 
 ```bash
 npx cordy init
-# o
+# or
 npx cordy init --format yaml
 ```
 
-La configuración usa `api_key_env`, no `api_key`:
+The configuration uses `api_key_env`, not `api_key`:
 
 ```toml
 [jev]
@@ -58,11 +60,11 @@ headed = false
 max_steps = 20
 ```
 
-No pongas secretos en TOML, YAML, argumentos, JSON de inputs, código generado ni logs.
+Never put secrets in TOML, YAML, CLI arguments, input JSON, generated code, or logs.
 
-## Inputs dinámicos
+## Dynamic inputs
 
-Cordy admite un DSL cerrado para datos variables, sin ejecutar JavaScript arbitrario:
+Cordy supports a closed DSL for variable data, without running arbitrary JavaScript:
 
 ```text
 ${timestamp()}
@@ -75,7 +77,7 @@ ${faker.lastName}
 ${faker.phone}
 ```
 
-Ejemplo:
+Example:
 
 ```bash
 npx cordy \
@@ -86,9 +88,10 @@ npx cordy \
   --input referencia='dias ${randInt(10, 99)}'
 ```
 
-Las plantillas se resuelven una vez por ejecución, en memoria. No se aceptan `eval`, `process.env`, imports, llamadas arbitrarias ni acceso a funciones fuera de la allowlist. Las salidas generadas conservan la fuente de inputs: los valores `key=value` quedan en `const input` y sus plantillas se evalúan al inicio de cada ejecución, mientras que un archivo se lee con `readFileSync` al ejecutar la prueba. Las claves sensibles no se incrustan y se mantienen como variables de entorno.
+Templates are resolved once per run, in memory. `eval`, `process.env`, imports, arbitrary calls, and functions outside the allowlist are rejected. Generated outputs keep the input source: `key=value` values go into `const input`, and their templates are evaluated at the start of every run, while an input file is read with `readFileSync` when the test runs. Sensitive keys are never embedded and stay as environment variables.
 
-## 4. Flujo completo con expectativas inferidas
+## 4. Full flow with inferred expectations
+
 ```bash
 npx cordy \
   "simula un credito entrando a la seccion cotiza tu envio y llenando el formulario y al simular debe de presentar como resultado esperado una pantalla con los resumen del envio y un boton de guardar cotización" \
@@ -101,16 +104,16 @@ npx cordy \
   --verbose
 ```
 
-La frase `resultado esperado` y las condiciones explícitas permiten inferir:
+The phrase `resultado esperado` ("expected result") and the explicit conditions let Cordy infer:
 
-- un texto o región visible relacionado con `resumen del envio`;
-- un elemento visible con rol `button` y nombre parecido a `guardar cotización`.
+- visible text or a region related to `resumen del envio` ("shipment summary");
+- a visible element with role `button` and a name similar to `guardar cotización` ("save quote").
 
-Las expectativas se validan después de ejecutar el último clic del flujo. La prueba generada conserva los asserts.
+Expectations are checked after the last click of the flow. The generated test keeps the assertions.
 
-## 5. Expectativas explícitas
+## 5. Explicit expectations
 
-Usa flags explícitos si quieres separar la especificación del prompt:
+Use explicit flags if you want to keep the specification separate from the prompt:
 
 ```bash
 --expect-visible "Resumen de la solicitud"
@@ -118,25 +121,62 @@ Usa flags explícitos si quieres separar la especificación del prompt:
 --expect-url "https://example.test/resultado"
 ```
 
-Puedes repetir cada uno. Las expectativas explícitas se agregan a las inferidas; no sustituyen la validación local.
+Each flag is repeatable. Explicit expectations are added to the inferred ones; they don't replace local validation.
 
-## 6. Diferencia entre `test` y `automation`
+## 6. `test` vs. `automation`
 
-`--output-kind test` genera un archivo consumible por `@playwright/test`:
+`--output-kind test` generates a file that `@playwright/test` can run:
 
 ```tsx
 import { expect, test } from '@playwright/test';
 ```
 
-Incluye `expect(...).toBeVisible()` y `expect(page).toHaveURL(...)`.
+It includes `expect(...).toBeVisible()` and `expect(page).toHaveURL(...)`.
 
-`--output-kind automation` genera un script de Playwright con `waitFor` para las expectativas, sin importar `@playwright/test`.
+`--output-kind automation` generates a Playwright script that uses `waitFor` for expectations, without importing `@playwright/test`.
 
-El archivo no se escribe si omites `--output`.
+No file is written if you omit `--output`.
 
-## 7. Ejecución segura
+### Several named tests in one file
 
-Usa `--dry-run` para observar el plan sin ejecutar acciones:
+With `--test-name <slug>`, Cordy writes the test as a named block and can add it to a file that already contains other tests. The slug accepts only lowercase letters, digits, and single hyphens, with a maximum of 64 characters. It is also the test title, so `npx playwright test -g <slug>` runs it. It only works with `--output-kind test`.
+
+```ts
+// cordy:begin cotizar-envio
+test('cotizar-envio', async ({ page }) => {
+  // ...
+});
+// cordy:end cotizar-envio
+```
+
+- **Without `--update`**: appends the block to the end of the file, or creates the file if it doesn't exist. If a test with that slug already exists, it fails and suggests `--update`.
+- **With `--update`**: replaces the existing block in place. If the slug doesn't exist, it fails.
+- **Imports**: merged into the file header without duplicates. Code outside the markers is never touched.
+- **Preflight validation**: conflicts and damaged markers are detected before the browser opens.
+- **Failures**: if any action or expectation fails, the file is not modified.
+
+```bash
+npx cordy "Simula un crédito con el formulario nuevo" \
+  --start-url https://staging.example.test \
+  --output ./playwright/flows.spec.ts \
+  --test-name cotizar-envio \
+  --update --diff
+```
+
+`--diff` runs the flow and prints the diff instead of writing the file. It can't be combined with `--dry-run`.
+
+To see which tests Cordy manages in a file and copy their slugs:
+
+```bash
+npx cordy tests ./playwright/flows.spec.ts
+npx cordy tests ./playwright/flows.spec.ts --json
+```
+
+`cordy tests` never opens the browser, and it exits with code `1` if it finds damaged markers or the file doesn't exist.
+
+## 7. Safe execution
+
+Use `--dry-run` to inspect the plan without executing actions:
 
 ```bash
 npx cordy \
@@ -147,61 +187,63 @@ npx cordy \
   --json
 ```
 
-Usa `--headed` para depurar selectores y navegación. Usa `--headless` en CI. Ajusta `--max-steps` para evitar ciclos:
+`--dry-run` never writes the `--output` file. With `--test-name`, it prints a preview instead: the import changes as a diff, and whether the test would be appended or replaced, with its current lines.
+
+Use `--headed` to debug selectors and navigation. Use `--headless` in CI. Tune `--max-steps` to avoid loops:
 
 ```bash
 --max-steps 12
 ```
 
-Los flujos actuales son de prueba y terminan después del clic final de impacto seleccionado por Jev. No uses el flujo contra producción sin controles externos.
+Current flows are test flows and stop after the final high-impact click chosen by Jev. Don't run a flow against production without external safeguards.
 
-## 8. Diagnóstico de fallos
+## 8. Troubleshooting
 
-### URL inválida
+### Invalid URL
 
-Incorrecto:
+Wrong:
 
 ```text
 example.test
 ```
 
-Correcto:
+Right:
 
 ```text
 https://example.test
 ```
 
-### Credencial ausente
+### Missing credential
 
-Verifica solo la existencia de la variable sin imprimirla:
+Check only that the variable exists, without printing it:
 
 ```bash
-if [ -n "$JEV_API_KEY" ]; then echo "JEV_API_KEY configurada"; else echo "JEV_API_KEY ausente"; fi
+if [ -n "$JEV_API_KEY" ]; then echo "JEV_API_KEY is set"; else echo "JEV_API_KEY is missing"; fi
 ```
 
-### Acción bloqueada
+### Blocked action
 
-Una respuesta como:
+A response like:
 
 ```text
-Jev propuso fill sobre un elemento role=button
+Jev proposed fill on an element with role=button
 ```
 
-indica que la validación local rechazó una combinación de acción y rol. No desactives esa protección; usa `--verbose`, `--headed` y revisa la página observada.
+means local validation rejected an action/role combination. Don't disable that protection; use `--verbose` and `--headed` and inspect the observed page.
 
-### Expectativa fallida
+### Failed expectation
 
-Ejecuta con `--json` y revisa `expectations`:
+Run with `--json` and check `expectations`:
 
 ```bash
 npx cordy ... --json > result.json
 ```
 
-Cada registro indica `kind`, `expected` y `status`. Una expectativa `failed` devuelve código `1`.
+Each record has `kind`, `expected`, and `status`. A `failed` expectation returns exit code `1`.
 
-## 9. CI y artefactos
+## 9. CI and artifacts
 
-Ejemplo:
+Example:
 
 ```bash
 npm ci
@@ -217,11 +259,11 @@ npx cordy \
   --json > artifacts/flow.result.json
 ```
 
-El secreto debe venir del gestor de secretos de CI. No guardes el JSON de inputs si contiene datos sensibles. Publica los artefactos solo después de revisar que no contienen valores privados.
+The secret must come from your CI secret manager. Don't store the input JSON if it contains sensitive data. Publish artifacts only after checking that they contain no private values.
 
-## 10. Preparación para npm
+## 10. Preparing for npm
 
-Antes de publicar o actualizar:
+Before publishing or updating:
 
 ```bash
 npm run typecheck
@@ -230,7 +272,7 @@ npm run build
 npm pack --dry-run
 ```
 
-`npm pack --dry-run` debe incluir al menos:
+`npm pack --dry-run` must include at least:
 
 ```text
 README.md
@@ -238,16 +280,16 @@ LICENSE
 dist/
 ```
 
-Y no debe incluir:
+And must not include:
 
 ```text
 .env
-credenciales
-logs privados
-archivos temporales
+credentials
+private logs
+temporary files
 ```
 
-Para una publicación autorizada:
+For an authorized release:
 
 ```bash
 npm whoami
@@ -255,4 +297,4 @@ npm version patch
 npm publish
 ```
 
-La API pública está en versión `0.x`; fija una versión en proyectos de CI si necesitas reproducibilidad.
+The public API is at version `0.x`; pin a version in CI projects if you need reproducibility.
