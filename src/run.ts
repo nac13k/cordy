@@ -204,7 +204,7 @@ async function execute(
 ): Promise<ActionRecord> {
   if (action.kind === 'needs_review') return { action, status: 'blocked', error: action.reason };
   if (action.kind === 'click' && action.highImpact && !approve)
-    return { action, status: 'blocked', error: 'requiere --approve' };
+    return { action, status: 'blocked', error: 'requires --approve' };
   if (dryRun) return { action, status: 'planned' };
   try {
     if (action.kind === 'wait') await page.waitForLoadState('domcontentloaded');
@@ -212,7 +212,7 @@ async function execute(
       await locatorFor(page, action.locator).fill(
         inputs[action.inputKey] ??
           (() => {
-            throw new Error(`input faltante: ${action.inputKey}`);
+            throw new Error(`missing input: ${action.inputKey}`);
           })(),
       );
     else if (action.kind === 'select')
@@ -233,7 +233,7 @@ async function execute(
     return {
       action,
       status: 'failed',
-      error: error instanceof Error ? error.message : 'error desconocido',
+      error: error instanceof Error ? error.message : 'unknown error',
     };
   }
 }
@@ -247,7 +247,7 @@ export async function runCordy(options: ParsedOptions, config?: CordyConfig) {
   const inferred = inferExpectations(task);
   const expectVisible = [...options.expectVisible, ...inferred.visible];
   const expectButtons = [...options.expectButtons, ...inferred.buttons];
-  if (!startUrl) throw new Error('define --start-url para abrir el navegador');
+  if (!startUrl) throw new Error('set --start-url to open the browser');
   const browser: Browser = await chromium.launch({ headless: !options.headed });
   const page = await browser.newPage();
   const actions: ActionRecord[] = [];
@@ -287,7 +287,7 @@ export async function runCordy(options: ParsedOptions, config?: CordyConfig) {
         if (emptyControls.length > 0)
           action = {
             kind: 'needs_review',
-            reason: `No se puede ejecutar ${workflowStep.target}: faltan campos visibles por llenar (${emptyControls.join(', ')})`,
+            reason: `Cannot execute ${workflowStep.target}: visible fields are still empty (${emptyControls.join(', ')})`,
           };
       }
       const record = await execute(page, action, inputs, true, options.dryRun);

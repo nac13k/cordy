@@ -101,7 +101,7 @@ export function createWorkflowPlan(task: string, inputs: Record<string, string>)
     fillStep.inputKeys.some((key) => !Object.prototype.hasOwnProperty.call(inputs, key))
   )
     throw new Error(
-      `Falta el input requerido: ${fillStep.inputKeys.find((key) => !Object.prototype.hasOwnProperty.call(inputs, key))}`,
+      `Missing required input: ${fillStep.inputKeys.find((key) => !Object.prototype.hasOwnProperty.call(inputs, key))}`,
     );
   return plan;
 }

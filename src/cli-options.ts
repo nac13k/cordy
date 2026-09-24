@@ -52,7 +52,7 @@ export function parseCliArgs(args: string[]): ParsedOptions {
     }
     const next = () => {
       const value = args[++index];
-      if (!value || value.startsWith('-')) throw new Error(`${arg} requiere un valor`);
+      if (!value || value.startsWith('-')) throw new Error(`${arg} requires a value`);
       return value;
     };
     if (arg === '--headed') options.headed = true;
@@ -67,7 +67,7 @@ export function parseCliArgs(args: string[]): ParsedOptions {
     else if (arg === '--output-kind') {
       const value = next();
       if (value !== 'test' && value !== 'automation')
-        throw new Error('--output-kind debe ser test o automation');
+        throw new Error('--output-kind must be test or automation');
       options.outputKind = value;
     } else if (arg === '--expect-visible') options.expectVisible.push(next());
     else if (arg === '--expect-button') options.expectButtons.push(next());
@@ -77,7 +77,7 @@ export function parseCliArgs(args: string[]): ParsedOptions {
     else if (arg === '--max-steps') {
       const parsed = Number(next());
       if (!Number.isInteger(parsed) || parsed < 1 || parsed > 100)
-        throw new Error('--max-steps debe ser un entero entre 1 y 100');
+        throw new Error('--max-steps must be an integer between 1 and 100');
       options.maxSteps = parsed;
     } else if (arg === '--input') {
       const value = next();
@@ -85,11 +85,11 @@ export function parseCliArgs(args: string[]): ParsedOptions {
         options.inputFile = value;
       else parseInput(value, options.inputs);
     } else if (arg === '--help' || arg === '-h') throw new Error('help');
-    else throw new Error(`opción desconocida: ${arg}`);
+    else throw new Error(`unknown option: ${arg}`);
   }
-  if (positional.length > 1) throw new Error('solo se permite una instrucción posicional');
+  if (positional.length > 1) throw new Error('only one positional instruction is allowed');
   if (positional[0] && options.promptFile)
-    throw new Error('la instrucción posicional y --prompt-file son mutuamente excluyentes');
+    throw new Error('the positional instruction and --prompt-file are mutually exclusive');
   options.task = positional[0];
   return ParsedOptions.parse(options);
 }

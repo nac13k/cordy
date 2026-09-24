@@ -67,7 +67,7 @@ export class JevClient {
     return Boolean(this.apiKey);
   }
   async nextAction(state: BrowserState, inputs: Record<string, string>): Promise<PlannedAction> {
-    if (!this.apiKey) throw new Error('Jev no está configurado: define JEV_API_KEY');
+    if (!this.apiKey) throw new Error('Jev is not configured: set JEV_API_KEY');
     const candidates = state.interactiveElements.flatMap((element) =>
       element.locatorCandidates.map((locator) => ({
         elementId: element.id,
@@ -166,7 +166,7 @@ export class JevClient {
     }
     if (!response.ok) {
       this.trace({ event: 'error', endpoint: this.endpoint, httpStatus: response.status });
-      throw new Error(`Jev respondió HTTP ${response.status}`);
+      throw new Error(`Jev returned HTTP ${response.status}`);
     }
     const body = (await response.json()) as {
       model?: string;
@@ -189,7 +189,7 @@ export class JevClient {
     const target = body.answers?.target?.choice;
     let inputKey = body.answers?.input_key?.choice;
     if (!action || action === 'needs_review' || !target || target === 'needs_review')
-      return { kind: 'needs_review', reason: 'Jev no identificó una acción y objetivo seguros' };
+      return { kind: 'needs_review', reason: 'Jev did not identify a safe action and target' };
     let element = state.interactiveElements.find((item) => item.id === target);
     let candidate = element?.locatorCandidates[0];
     if (
@@ -256,7 +256,7 @@ export class JevClient {
             confidence: 0.5,
             evidenceId: state.observationId,
           },
-          reason: 'Cordy corrigió una propuesta de fill sobre el botón de entrada',
+          reason: 'Cordy corrected a fill proposal targeting the entry button',
           highImpact: false,
         });
       }
@@ -264,12 +264,12 @@ export class JevClient {
     if (state.workflow && !state.workflow.allowedActions.includes(action))
       return {
         kind: 'needs_review',
-        reason: `La acción ${action} no está permitida en el paso ${state.workflow.kind}`,
+        reason: `Action ${action} is not allowed in workflow step ${state.workflow.kind}`,
       };
     if (!element || !candidate)
       return {
         kind: 'needs_review',
-        reason: 'El objetivo propuesto no existe en la observación actual',
+        reason: 'The proposed target does not exist in the current observation',
       };
     if (
       state.workflow &&
@@ -280,7 +280,7 @@ export class JevClient {
     )
       return {
         kind: 'needs_review',
-        reason: `El control "${element.name}" no coincide con el objetivo solicitado "${state.workflow.target}"`,
+        reason: `Control "${element.name}" does not match the requested target "${state.workflow.target}"`,
       };
     if (
       ['fill', 'select', 'check'].includes(action) &&
@@ -288,7 +288,7 @@ export class JevClient {
     )
       return {
         kind: 'needs_review',
-        reason: `Jev propuso ${action} sobre un elemento role=${element.role}`,
+        reason: `Jev proposed ${action} on an element with role=${element.role}`,
       };
     const locator = {
       strategy: candidate.strategy,
@@ -301,21 +301,21 @@ export class JevClient {
         kind: 'fill',
         locator,
         inputKey,
-        reason: 'Jev seleccionó el campo y el input proporcionado',
+        reason: 'Jev selected the field and provided input',
       });
     if (action === 'select' && inputKey && inputKey !== 'none')
       return PlannedAction.parse({
         kind: 'select',
         locator,
         inputKey,
-        reason: 'Jev seleccionó el selector y el valor proporcionado',
+        reason: 'Jev selected the selector and provided value',
       });
     if (action === 'check' && inputKey && inputKey !== 'none')
       return PlannedAction.parse({
         kind: 'check',
         locator,
         inputKey,
-        reason: 'Jev seleccionó el checkbox y el input proporcionado',
+        reason: 'Jev selected the checkbox and provided input',
       });
     if (action === 'click') {
       const highImpact = /submit|enviar|simular|continuar|confirmar|calcular|solicitar/i.test(
@@ -325,16 +325,16 @@ export class JevClient {
         kind: 'click',
         locator,
         reason: highImpact
-          ? 'Jev seleccionó un control de impacto; requiere aprobación'
-          : 'Jev seleccionó un control seguro',
+          ? 'Jev selected a high-impact control; approval is required'
+          : 'Jev selected a safe control',
         highImpact,
       });
     }
     if (action === 'wait')
-      return { kind: 'wait', reason: 'Jev indicó que debe observarse un cambio' };
+      return { kind: 'wait', reason: 'Jev indicated that a page change should be observed' };
     return {
       kind: 'needs_review',
-      reason: 'La respuesta de Jev no coincide con una acción permitida',
+      reason: 'Jev response does not match an allowed action',
     };
   }
 }

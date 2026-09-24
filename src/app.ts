@@ -2,37 +2,37 @@ import { parseCliArgs } from './cli-options.js';
 import { runCordy } from './run.js';
 import { createConfigFile, findConfig, loadConfig, type CordyConfig } from './config.js';
 
-export const help = `cordy - automatización Playwright con lenguaje natural y Jev
+export const help = `cordy - natural-language Playwright automation with Jev
 
-Uso:
-  npx cordy "Completa el formulario" --start-url https://example.test --input email=ana@example.com
+Usage:
+  npx cordy "Complete the form" --start-url https://example.test --input email=ana@example.com
   npx cordy --prompt-file ./task.txt --input ./inputs.json --headed --output ./automation.ts
 
-Opciones:
-  --input <key=value|file.json>  Input repetible o archivo JSON
-  --prompt-file <file>            Instrucción desde archivo
-  --config <file>                 Configuración TOML/YAML
-  --start-url <url>               URL inicial obligatoria
-  --headed                        Mostrar el navegador
-  --headless                      Ejecutar sin UI (default)
-  --dry-run                       Planificar sin ejecutar
-  --approve                       Aprobar acciones de impacto
-  --output <file>                 Generar TypeScript/TSX
-  --output-kind <test|automation> Generar asserts o solo automatización
-  --expect-visible <text>          Assert repetible de texto visible
-  --expect-button <name>           Assert repetible de botón por nombre accesible
-  --expect-url <url>               Assert repetible de URL
-  --max-steps <n>                 Máximo de acciones (default: 20)
-  --json                          Resultado JSON
-  --verbose                       Diagnóstico seguro de cada interacción con Jev
-  --help                          Mostrar ayuda`;
+Options:
+  --input <key=value|file.json>  Repeatable input or JSON file
+  --prompt-file <file>            Instruction from a file
+  --config <file>                 TOML/YAML configuration
+  --start-url <url>               Required starting URL
+  --headed                        Show the browser
+  --headless                      Run without UI (default)
+  --dry-run                       Plan without executing
+  --approve                       Approve high-impact actions
+  --output <file>                 Generate TypeScript/TSX
+  --output-kind <test|automation> Generate assertions or automation only
+  --expect-visible <text>         Repeatable visible-text assertion
+  --expect-button <name>          Repeatable assertion by accessible button name
+  --expect-url <url>              Repeatable URL assertion
+  --max-steps <n>                 Maximum actions (default: 20)
+  --json                          JSON result
+  --verbose                       Safe diagnostics for each Jev interaction
+  --help                          Show help`;
 
 export async function main(args = process.argv.slice(2)) {
   if (args[0] === 'init') {
     const format = args.includes('--format') ? args[args.indexOf('--format') + 1] : 'toml';
-    if (format !== 'toml' && format !== 'yaml') throw new Error('--format debe ser toml o yaml');
+    if (format !== 'toml' && format !== 'yaml') throw new Error('--format must be toml or yaml');
     const file = await createConfigFile(process.cwd(), format);
-    console.log(`Configuración creada: ${file}`);
+    console.log(`Configuration created: ${file}`);
     return 0;
   }
   if (args.includes('--help') || args.includes('-h')) {
@@ -56,7 +56,7 @@ export async function main(args = process.argv.slice(2)) {
     if (options.json) console.log(JSON.stringify(result, null, 2));
     else
       console.log(
-        `Cordy terminó con ${result.actions.length} acción(es): ${result.actions.map((action) => action.status).join(', ')}${result.expectations.length ? `; expectativas: ${result.expectations.map((expectation) => expectation.status).join(', ')}` : ''}`,
+        `Cordy finished with ${result.actions.length} action(s): ${result.actions.map((action) => action.status).join(', ')}${result.expectations.length ? `; expectations: ${result.expectations.map((expectation) => expectation.status).join(', ')}` : ''}`,
       );
     return result.actions.some((action) => action.status === 'failed') ||
       result.expectations.some((expectation) => expectation.status === 'failed')

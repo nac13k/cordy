@@ -28,7 +28,7 @@ function resolveExpression(
   if (randomMatch) {
     const min = Number(randomMatch[1]);
     const max = Number(randomMatch[2]);
-    if (min > max) throw new Error(`rango inválido en ${trimmed}`);
+    if (min > max) throw new Error(`invalid range in ${trimmed}`);
     return String(randInt(min, max, context.random));
   }
   const fake = context.faker;
@@ -37,7 +37,7 @@ function resolveExpression(
   if (trimmed === 'faker.firstName') return fake?.firstName ?? defaultFaker.person.firstName();
   if (trimmed === 'faker.lastName') return fake?.lastName ?? defaultFaker.person.lastName();
   if (trimmed === 'faker.phone') return fake?.phone ?? defaultFaker.phone.number();
-  throw new Error(`expresión no permitida en input: ${trimmed}`);
+  throw new Error(`unsupported input expression: ${trimmed}`);
 }
 
 export function resolveInputTemplate(value: string, context: DynamicInputContext = {}): string {

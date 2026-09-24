@@ -42,6 +42,6 @@ describe('cordy CLI options', () => {
     });
   });
   it('rejects both positional task and prompt file', () => {
-    expect(() => parseCliArgs(['task', '--prompt-file', 'task.md'])).toThrow(/mutuamente/);
+    expect(() => parseCliArgs(['task', '--prompt-file', 'task.md'])).toThrow(/mutually exclusive/);
   });
 });
