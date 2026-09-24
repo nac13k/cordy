@@ -633,7 +633,7 @@ npm version patch   # or minor / major; commits the bump and creates the v* tag
 git push --follow-tags
 ```
 
-The workflow checks that the tag matches the `version` in `package.json`, runs `format:check`, `typecheck`, and `test`, and then runs `npm publish` with provenance. Pre-release versions such as `0.2.0-beta.1` are published under the `next` dist-tag, so they do not replace `latest`.
+The workflow checks that the tag matches the `version` in `package.json`, runs `format:check`, `typecheck`, and `test`, and then runs `npm publish`. Pre-release versions such as `0.2.0-beta.1` are published under the `next` dist-tag, so they do not replace `latest`.
 
 One-time setup: create an npm granular access token with read and write access to `@nac13k/cordy` (or to all packages for the first publish) and store it as the `NPM_TOKEN` repository secret in GitHub.
 
