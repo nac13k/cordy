@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { parse as parseYaml } from 'yaml';
+import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 import { z } from 'zod';
 
 export const PLAN_MAX_STEPS = 50;
@@ -106,7 +106,7 @@ export function parsePlanFile(source: string): LoadedPlan {
   };
 }
 
-async function readStdin() {
+export async function readStdin() {
   const chunks: Buffer[] = [];
   for await (const chunk of process.stdin) chunks.push(Buffer.from(chunk));
   return Buffer.concat(chunks).toString('utf8');
@@ -127,6 +127,20 @@ export function describeStep(step: PlanFileStep) {
 /** The task text sent to Jev for a plan: its description, or the step texts. */
 export function planTask(plan: LoadedPlan) {
   return plan.description ?? plan.steps.map(describeStep).join('\n');
+}
+
+/** Renders a loaded plan as a version 1 plan file. */
+export function planToYaml(plan: LoadedPlan) {
+  return stringifyYaml({
+    version: 1,
+    ...(plan.description ? { description: plan.description } : {}),
+    steps: plan.steps.map((step) => {
+      if (step.kind === 'natural') return step.text;
+      if (step.kind === 'fill') return { fill: step.keys };
+      if (step.kind === 'wait') return { wait: 'load' };
+      return { [step.kind]: step.target };
+    }),
+  });
 }
 
 export function planJsonSchema() {

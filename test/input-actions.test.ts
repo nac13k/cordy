@@ -6,8 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { parseBooleanInput } from '../src/dynamic-inputs.js';
 import type { ActionRecord, PlannedAction } from '../src/domain.js';
 import { consumedInputKeys, execute, generateTypeScript } from '../src/run.js';
-import { createWorkflowPlan } from '../src/workflow-plan.js';
-import { replayCursor, stepsFromWorkflowPlan } from '../src/plan-steps.js';
+import { replayCursor, stepsFromPlanFile } from '../src/plan-steps.js';
 
 const locator = { strategy: 'getByLabel' as const, value: 'Field', confidence: 1, evidenceId: 'o' };
 
@@ -80,12 +79,15 @@ describe('input consumption', () => {
     status: 'succeeded',
   });
   it('completes the fill step when inputs are consumed by select and fill', () => {
-    // Spanish prompt on purpose: the planner's regexes derive fill_inputs + final click from it.
-    const plan = createWorkflowPlan('llena el formulario y simula el credito', {
-      state: 'Jalisco',
-      amount: '10',
-    });
-    const steps = stepsFromWorkflowPlan(plan);
+    const steps = stepsFromPlanFile(
+      {
+        steps: [
+          { index: 0, kind: 'fill', keys: ['state', 'amount'] },
+          { index: 1, kind: 'submit', target: 'Simulate' },
+        ],
+      },
+      () => 'click',
+    );
     const keys = ['state', 'amount'];
     expect(steps[replayCursor(steps, [record('select', 'state')], keys).index]).toMatchObject({
       kind: 'fill',
@@ -93,7 +95,7 @@ describe('input consumption', () => {
     });
     expect(
       steps[replayCursor(steps, [record('select', 'state'), record('fill', 'amount')], keys).index],
-    ).toMatchObject({ kind: 'submit', target: 'simular' });
+    ).toMatchObject({ kind: 'submit', target: 'Simulate' });
   });
   it('ignores failed actions', () => {
     expect(consumedInputKeys([{ ...record('check', 'accept'), status: 'failed' }]).size).toBe(0);

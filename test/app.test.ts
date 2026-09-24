@@ -9,6 +9,7 @@ vi.mock('../src/run.js', () => ({ runCordy }));
 vi.mock('@playwright/test', () => ({ chromium: { launch } }));
 
 const { main } = await import('../src/app.js');
+const { parsePlanFile } = await import('../src/plan-file.js');
 
 const block = (slug: string) =>
   `// cordy:begin ${slug}\ntest('${slug}', async () => {});\n// cordy:end ${slug}`;
@@ -125,6 +126,30 @@ describe('cordy CLI app', () => {
       expect(runCordy).not.toHaveBeenCalled();
       expect(launch).not.toHaveBeenCalled();
       vi.unstubAllEnvs();
+    });
+    it('prints the plan a prompt splits into, without contacting Jev', async () => {
+      vi.stubEnv('JEV_API_KEY', '');
+      const fetch = vi.fn();
+      vi.stubGlobal('fetch', fetch);
+      expect(
+        await main(['plan', 'from-prompt', 'clic en "Sí, continuar", llena el formulario']),
+      ).toBe(0);
+      expect(parsePlanFile(stdout.join(''))).toEqual({
+        steps: [
+          { index: 0, kind: 'natural', text: 'clic en "Sí, continuar"' },
+          { index: 1, kind: 'natural', text: 'llena el formulario' },
+        ],
+      });
+      expect(stdout.join('')).toMatch(/^version: 1\n/);
+      expect(fetch).not.toHaveBeenCalled();
+      expect(launch).not.toHaveBeenCalled();
+      vi.unstubAllEnvs();
+      vi.unstubAllGlobals();
+    });
+    it('fails from-prompt when the split breaks a limit', async () => {
+      expect(await main(['plan', 'from-prompt', ', ;'])).toBe(1);
+      expect(stderr.join('\n')).toMatch(/the prompt has no steps/);
+      expect(await main(['plan', 'from-prompt'])).toBe(1);
     });
   });
 });

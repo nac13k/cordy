@@ -24,10 +24,16 @@ describe('run expectations', () => {
       'fetch',
       vi.fn(async (_url: unknown, init?: RequestInit) => {
         jevRequests.push(String(init?.body));
-        return new Response(JSON.stringify({ answers: { action: { choice: 'needs_review' } } }));
+        const classify = 'step_0' in JSON.parse(String(init?.body)).questions;
+        return new Response(
+          JSON.stringify({
+            answers: classify
+              ? { step_0: { choice: 'fill' } }
+              : { action: { choice: 'needs_review' } },
+          }),
+        );
       }),
     );
-    // Spanish prompt on purpose: it matches the planner's fill step regexes.
     return runCordy(
       parseCliArgs([
         'llena el formulario',

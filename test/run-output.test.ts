@@ -22,7 +22,7 @@ describe('managed output preflight', () => {
   const run = (...flags: string[]) =>
     runCordy(
       parseCliArgs([
-        'entra a la sección cotizador de envíos y llena el formulario',
+        'Open "Shipping quote", fill in the form',
         '--input',
         'monto=1',
         '--start-url',
@@ -51,8 +51,22 @@ describe('managed output preflight', () => {
   });
 
   it('launches the browser when the plan is valid', async () => {
+    vi.stubEnv('JEV_API_KEY', 'test-only');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              answers: { step_0: { choice: 'click' }, step_1: { choice: 'fill' } },
+            }),
+          ),
+      ),
+    );
     await expect(run('--test-name', 'login', '--update')).rejects.toThrow(/must not launch/);
     expect(launch).toHaveBeenCalledOnce();
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
   });
 
   it('rejects expectations that reference inputs missing from the inputs file before launch', async () => {

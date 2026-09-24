@@ -71,7 +71,8 @@ export function parseCliArgs(args: string[]): ParsedOptions {
   const positional: string[] = [];
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
-    if (!arg.startsWith('-')) {
+    // A prompt may start with a dash list marker (`- step`); option names never contain spaces.
+    if (!arg.startsWith('-') || /^-\s/.test(arg)) {
       positional.push(arg);
       continue;
     }

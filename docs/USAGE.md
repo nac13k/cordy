@@ -13,7 +13,7 @@ Cordy separates four responsibilities:
 
 Jev is not a code executor. It never receives API keys, cookies, authorization headers, real input values, full HTML, or full page text.
 
-> **Prompt language:** Cordy's workflow planner and expectation inference currently match Spanish phrasing (for example `entra a la seccion ...`, `resultado esperado`, `boton de ...`). The example prompts in this guide are therefore kept in Spanish on purpose: they are input data for Cordy, not documentation prose.
+> **Prompts are step lists:** write the steps in any language, separated by commas, line breaks, numbers (`1.`, `1)`), or leading dashes. Cordy splits them locally, and Jev classifies each step before the browser opens. Some examples in this guide are in Spanish to show that the language does not matter. Run `cordy plan from-prompt '<prompt>'` to see the split offline.
 
 ## 2. Recommended installation
 
@@ -81,7 +81,7 @@ Example:
 
 ```bash
 npx @nac13k/cordy \
-  "Completa el registro" \
+  "Llena el formulario de registro" \
   --start-url https://example.test \
   --input email='correo+${timestamp()}@example.com' \
   --input nombre='${faker.name}' \
@@ -96,22 +96,23 @@ Use `--file key=path[,path...]`, or a typed entry `{ "type": "file", "path": "..
 
 ```bash
 npx @nac13k/cordy \
-  "Completa el registro y sube la identificación" \
+  "Llena el formulario de registro" \
   --start-url https://example.test \
   --file id_document=./fixtures/id.pdf
 ```
 
 Paths are relative to the working directory (the project root), and each file must exist before the run starts. Jev only learns that the key is a file input. Cordy uploads into `<input type="file">` controls, including hidden ones, and blocks the upload when the control's `accept` list or `multiple` setting does not fit the files. Generated code keeps the same relative paths in a `files` constant.
 
-## 4. Full flow with inferred expectations
+## 4. Full flow with expectations
 
 ```bash
 npx @nac13k/cordy \
-  "entra a la sección cotizador de envíos y simula un envío llenando el formulario y al simular debe de presentar como resultado esperado el resumen del envío y un botón de guardar cotización" \
+  $'1. Entra a la sección "Cotizador de envíos"\n2. Llena el formulario\n3. Clic en "Simular"' \
   --start-url https://example.test \
   --input peso=2 \
   --input codigo_postal=44100 \
   --expect 'text:Resumen del envío' \
+  --expect 'button:Guardar cotización' \
   --output ./playwright/cotizar-envio.spec.ts \
   --output-kind test \
   --approve \
@@ -119,17 +120,18 @@ npx @nac13k/cordy \
   --verbose
 ```
 
-(The prompt is Spanish because that is the phrasing Cordy's planner parses.) Cordy plans navigation to the `cotizador de envíos` section, filling `peso` and `codigo_postal`, and the final `simular` click. From `botón de guardar cotización` it infers a visible element with role `button` and a name similar to `guardar cotización` ("save quote"). Visible texts are not inferred, so the result text is declared with `--expect`.
+(The steps are in Spanish to show that any language works; `Cotizador de envíos`, `Simular`, `Resumen del envío`, and `Guardar cotización` are the example app's labels.) The prompt splits into three steps: a click on the `Cotizador de envíos` section, a fill that uses `peso` and `codigo_postal`, and a click on `Simular`. `Simular` is a high-impact name, so the click needs `--approve`. Cordy never infers expectations from the prompt, so the result text and the button are declared with `--expect`.
 
-Expectations are checked after the last click of the flow. The generated test keeps the assertions.
+Expectations are checked after the last step. The generated test keeps the assertions.
 
 ## Plan files
 
-When the prompt is not in Spanish, or the flow is not a simple form, describe the steps in a plan file:
+A plan file holds the same steps as a prompt, plus an optional description and explicit step forms:
 
 ```bash
 npx @nac13k/cordy plan init plan.yaml      # commented example
 npx @nac13k/cordy plan check plan.yaml     # offline validation
+npx @nac13k/cordy plan from-prompt '…'     # print the plan a prompt splits into
 npx @nac13k/cordy --plan plan.yaml --start-url https://example.test --input email=ana@example.com --approve
 ```
 
@@ -149,7 +151,7 @@ Use `--expect '[not-]<kind>:<arg>'` to keep the specification separate from the 
 
 (The expected texts are Spanish because they are the example app's labels.)
 
-The kinds are `text`, `button`, `button-enabled`, `button-disabled`, `url`, `title`, `value` (`<label>=<m>`), `checked`, `unchecked`, and `count` (`<m>=<n>`). A matcher is a case-insensitive substring, a `/regex/flags`, or contains `${input.<key>}`. Use single quotes so the shell does not expand `$`. Each expectation retries for up to 5 seconds, and negated ones run last. `--expect-visible`, `--expect-button`, and `--expect-url` (exact match) still work as aliases. Explicit expectations are added to the inferred ones; they don't replace local validation.
+The kinds are `text`, `button`, `button-enabled`, `button-disabled`, `url`, `title`, `value` (`<label>=<m>`), `checked`, `unchecked`, and `count` (`<m>=<n>`). A matcher is a case-insensitive substring, a `/regex/flags`, or contains `${input.<key>}`. Use single quotes so the shell does not expand `$`. Each expectation retries for up to 5 seconds, and negated ones run last. `--expect-visible`, `--expect-button`, and `--expect-url` (exact match) still work as aliases. Expectations are never inferred from the prompt, and they don't replace local validation.
 
 ## 6. `test` vs. `automation`
 
@@ -184,7 +186,7 @@ test('cotizar-envio', async ({ page }) => {
 - **Failures**: if any action or expectation fails, the file is not modified.
 
 ```bash
-npx @nac13k/cordy "Simula un envío con el formulario nuevo" \
+npx @nac13k/cordy 'Llena el formulario nuevo, clic en "Simular"' \
   --start-url https://staging.example.test \
   --output ./playwright/flows.spec.ts \
   --test-name cotizar-envio \
@@ -208,7 +210,7 @@ Use `--dry-run` to inspect the plan without executing actions:
 
 ```bash
 npx @nac13k/cordy \
-  "Completa el flujo" \
+  'Llena el formulario, clic en "Enviar"' \
   --start-url https://staging.example.test \
   --input email=ana@example.com \
   --dry-run \
@@ -223,7 +225,7 @@ Use `--headed` to debug selectors and navigation. Use `--headless` in CI. Tune `
 --max-steps 12
 ```
 
-High-impact clicks run only with `--approve`; without it they are recorded as `blocked`. Prompt runs stop right after the high-impact click, and plan runs continue with their remaining steps. Don't run a flow against production without external safeguards.
+High-impact clicks run only with `--approve`; without it they are recorded as `blocked`. After a high-impact click, the run continues with its remaining steps. Don't run a flow against production without external safeguards.
 
 ## 8. Troubleshooting
 

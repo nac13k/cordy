@@ -1,10 +1,9 @@
 import type { ActionRecord } from './domain.js';
 import type { LoadedPlan } from './plan-file.js';
-import type { WorkflowPlan } from './workflow-plan.js';
 
 export type PlanStepKind = 'click' | 'submit' | 'fill' | 'wait';
 
-/** One executable step. Regex plans and plan files both become a list of these. */
+/** One executable step. Plan files and split prompts both become a list of these. */
 export type PlanStep = {
   index: number;
   kind: PlanStepKind;
@@ -17,42 +16,7 @@ export type PlanStep = {
   target?: string;
   /** Explicit fill keys. A natural-language fill has none and consumes pending keys. */
   keys?: string[];
-  /** Also offer `wait` to Jev (regex section navigation). */
-  allowWait?: boolean;
 };
-
-export function stepsFromWorkflowPlan(plan: WorkflowPlan): PlanStep[] {
-  const steps: PlanStep[] = [];
-  for (const step of plan.steps) {
-    const index = steps.length;
-    if (step.kind === 'navigate_section')
-      steps.push({
-        index,
-        kind: 'click',
-        workflowKind: 'navigate_section',
-        anchor: 'explicit',
-        target: step.target,
-        allowWait: true,
-      });
-    else if (step.kind === 'click')
-      steps.push({
-        index,
-        kind: step.finalImpact ? 'submit' : 'click',
-        workflowKind: 'click',
-        anchor: 'explicit',
-        target: step.target,
-      });
-    else if (step.kind === 'fill_inputs')
-      steps.push({
-        index,
-        kind: 'fill',
-        workflowKind: 'fill_inputs',
-        anchor: 'explicit',
-        keys: step.inputKeys,
-      });
-  }
-  return steps;
-}
 
 const QUOTED = /"([^"]+)"|“([^”]+)”/;
 
@@ -182,8 +146,7 @@ export function workflowContext(step: PlanStep | undefined, pending: string[]) {
     kind: step.workflowKind,
     ...(step.text ? { instruction: step.text } : {}),
     ...(step.target ? { target: step.target } : {}),
-    allowedActions:
-      step.kind === 'wait' ? ['wait'] : step.allowWait ? ['click', 'wait'] : ['click'],
+    allowedActions: step.kind === 'wait' ? ['wait'] : ['click'],
     ...(step.kind === 'submit'
       ? { finalImpact: true }
       : step.workflowKind === 'click'

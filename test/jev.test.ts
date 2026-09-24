@@ -102,9 +102,9 @@ describe('Jev planner', () => {
       {
         ...state,
         workflow: {
-          kind: 'navigate_section',
+          kind: 'click',
           target: 'cotizador de envíos',
-          allowedActions: ['click', 'wait'],
+          allowedActions: ['click'],
         },
         interactiveElements: [
           {
@@ -320,7 +320,7 @@ describe('Jev planner', () => {
     it('rejects a compound step naming it', async () => {
       const { result } = await classify(classification.response.answers);
       await expect(result).rejects.toThrow(
-        'Plan step 5 ("llena el formulario y da clic en enviar") describes more than one action; split it into separate steps',
+        'Plan step 5 ("llena el formulario y da clic en enviar") describes more than one action; split it into separate steps (in a prompt, separate them with commas or line breaks)',
       );
     });
     it('rejects missing and invalid answers naming the step', async () => {

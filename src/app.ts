@@ -3,21 +3,25 @@ import { runCordy } from './run.js';
 import { readFile, writeFile } from 'node:fs/promises';
 import { createConfigFile, findConfig, loadConfig, type CordyConfig } from './config.js';
 import { parseManagedFile } from './managed-output.js';
-import { loadPlanFile, PLAN_TEMPLATE, planJsonSchema } from './plan-file.js';
+import { loadPlanFile, PLAN_TEMPLATE, planJsonSchema, planToYaml, readStdin } from './plan-file.js';
+import { planFromPrompt } from './prompt-steps.js';
 
 export const help = `cordy - natural-language Playwright automation with Jev
 
 Usage:
-  npx @nac13k/cordy "Complete the form" --start-url https://example.test --input email=ana@example.com
+  npx @nac13k/cordy 'Open "Sign up", fill in the form, click "Create account"' --start-url https://example.test --input email=ana@example.com --approve
   npx @nac13k/cordy --prompt-file ./task.txt --input ./inputs.json --headed --output ./automation.ts
   npx @nac13k/cordy tests ./flows.spec.ts [--json]
   npx @nac13k/cordy --plan ./plan.yaml --start-url https://example.test --input email=ana@example.com
-  npx @nac13k/cordy plan init [plan.yaml] | plan schema | plan check <file|->
+  npx @nac13k/cordy plan init [plan.yaml] | plan schema | plan check <file|-> | plan from-prompt <text|->
+
+The prompt is a list of steps separated by line breaks, list markers (-, *, 1., 1)),
+inline numbering (1. a 2. b), or commas and semicolons outside double quotes.
 
 Options:
   --input <key=value|file.json>  Repeatable input or JSON file
   --file <key=path[,path]>       Repeatable file input for uploads (paths relative to cwd)
-  --prompt-file <file>            Instruction from a file
+  --prompt-file <file>            Steps from a file (same splitting as the prompt)
   --plan <file|->                 Plan file (YAML/JSON) with ordered steps; - reads stdin
   --config <file>                 TOML/YAML configuration
   --start-url <url>               Required starting URL
@@ -109,7 +113,14 @@ async function planCommand(args: string[]) {
       console.log(`Plan is valid: ${plan.steps.length} step(s)`);
       return 0;
     }
-    throw new Error('usage: cordy plan init [file] | plan schema | plan check <file|->');
+    if (command === 'from-prompt') {
+      if (!path) throw new Error('usage: cordy plan from-prompt <text|->');
+      process.stdout.write(planToYaml(planFromPrompt(path === '-' ? await readStdin() : path)));
+      return 0;
+    }
+    throw new Error(
+      'usage: cordy plan init [file] | plan schema | plan check <file|-> | plan from-prompt <text|->',
+    );
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     return 1;

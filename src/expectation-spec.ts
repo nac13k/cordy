@@ -144,20 +144,9 @@ export type ExpectationSources = {
   expectVisible: string[];
   expectButtons: string[];
   expectUrl: string[];
-  inferred?: { visible: string[]; buttons: string[] };
 };
 
-function literal(kind: 'text' | 'button', value: string): Expectation {
-  return {
-    kind,
-    negated: false,
-    spec: `${kind}:${value}`,
-    expected: value,
-    matcher: { type: 'substring', source: value, flags: 'i', inputRefs: [] },
-  };
-}
-
-/** Merges --expect, the legacy --expect-* aliases, and prompt-inferred expectations. */
+/** Merges --expect and the legacy --expect-* aliases. */
 export function collectExpectations(
   sources: ExpectationSources,
   inputKeys: Iterable<string> = [],
@@ -174,8 +163,6 @@ export function collectExpectations(
       expected: value,
       matcher: exactMatcher(value),
     })),
-    ...(sources.inferred?.visible ?? []).map((value) => literal('text', value)),
-    ...(sources.inferred?.buttons ?? []).map((value) => literal('button', value)),
   ];
   const seen = new Set<string>();
   return all.filter((expectation) => {

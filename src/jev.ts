@@ -207,7 +207,9 @@ export class JevClient {
       const choice = body.answers?.[`step_${step.index}`]?.choice;
       const label = `Plan step ${step.index + 1} ("${step.text}")`;
       if (choice === 'compound')
-        throw new Error(`${label} describes more than one action; split it into separate steps`);
+        throw new Error(
+          `${label} describes more than one action; split it into separate steps (in a prompt, separate them with commas or line breaks)`,
+        );
       if (!STEP_KINDS.includes(choice as StepKind))
         throw new Error(`${label} could not be classified by Jev (answer: ${choice ?? 'none'})`);
       kinds.set(step.index, choice as StepKind);
@@ -374,7 +376,7 @@ export class JevClient {
       };
     if (
       state.workflow &&
-      ['navigate_section', 'click', 'submit'].includes(state.workflow.kind) &&
+      ['click', 'submit'].includes(state.workflow.kind) &&
       action === 'click' &&
       state.workflow.target &&
       !matchesTarget(element.name, state.workflow.target)

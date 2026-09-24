@@ -13,23 +13,23 @@ Cordy is a TypeScript CLI for designing and running Playwright automations from 
 
 ## What is it for?
 
-Cordy turns a Spanish instruction such as:
+Cordy turns a list of steps such as:
 
 ```text
-Entra a la sección cotizador de envíos, llena el formulario y simula.
+Open "Shipping quote", fill in the form, click "Simulate"
 ```
 
-("Go to the shipping quote section, fill in the form, and simulate.") The instruction is in Spanish because the prompt planner only recognizes Spanish phrasing: `entra`/`navega a la sección …`, `llena`, `simula`/`calcula`, and `botón de …`. For any other language, or for flows those phrases cannot describe, write the steps in a [plan file](#plan-files), in any language:
+into a reproducible test flow. Write the steps in any language, separated by commas, line breaks, numbers, or dashes (see [Prompts are step lists](#prompts-are-step-lists)). The same steps can also go in a [plan file](#plan-files):
 
 ```yaml
 version: 1
 steps:
-  - Go to the "Shipping quote" section
+  - Open "Shipping quote"
   - Fill in the form
   - Click "Simulate"
 ```
 
-Either one becomes a reproducible test flow:
+Either one runs like this:
 
 1. Observe the visible controls on the page.
 2. Build and validate an ordered execution plan.
@@ -41,8 +41,6 @@ Either one becomes a reproducible test flow:
 
 Cordy does not allow Jev to execute arbitrary JavaScript or Playwright. Jev proposes structured decisions; Cordy keeps control of the workflow, and Playwright executes only the allowed actions.
 
-> The prompts in the command examples below are written in English to show the flags. The planner only derives steps from Spanish phrasing, so for a real run write the prompt in Spanish or pass a plan file with `--plan`.
-
 ## Why is it called Cordy?
 
 **Cordy** combines two ideas at the center of the project: **coordination** and **Cordyceps**. The name reflects Cordy's role as a coordinator between a natural-language instruction, an external reasoning agent, and a controlled browser runtime.
@@ -51,7 +49,7 @@ The Cordyceps reference also connects to the visual identity: a brain and a mush
 
 The name is short and memorable, but its meaning is intentional: the user expresses intent in natural language, Jev helps interpret it, Cordy controls the boundary and the sequence, and Playwright performs the verifiable browser work.
 
-> Cordy is designed for test flows. It only runs the steps derived from your prompt or listed in your plan, and it runs a high-impact click (such as a final submit) only when you pass `--approve`. A prompt run stops as soon as its derived steps are done. Do not use it against production systems or for irreversible operations without independent authorization.
+> Cordy is designed for test flows. It only runs the steps listed in your prompt or plan, and it runs a high-impact click (such as a final submit) only when you pass `--approve`. A run stops when its last step is done. Do not use it against production systems or for irreversible operations without independent authorization.
 
 ## Requirements
 
@@ -218,7 +216,7 @@ Repeat `--input` for every value required by the flow:
 
 ```bash
 npx @nac13k/cordy \
-  "Get a shipping quote" \
+  'Open "Shipping quote", fill in the form, click "Simulate"' \
   --start-url https://example.test \
   --input peso=2 \
   --input codigo_postal=44100
@@ -259,16 +257,14 @@ Pass files with `--file key=path`. Repeat the flag for each file input, and sepa
 
 ```bash
 npx @nac13k/cordy \
-  "Completa el registro y sube la identificación" \
+  "Fill in the registration form" \
   --start-url https://example.test \
   --input name=Ana \
   --file id_document=./fixtures/id.pdf \
   --file attachments=./fixtures/a.pdf,./fixtures/b.pdf
 ```
 
-(The prompt is Spanish on purpose; it is the phrasing Cordy's planner parses.)
-
-In an inputs JSON file, use a typed entry:
+One fill step uses both values and files. In an inputs JSON file, use a typed entry:
 
 ```json
 {
@@ -334,11 +330,15 @@ env \
   npx playwright test ./playwright/registration.spec.ts
 ```
 
-`task.txt` can contain a longer instruction:
+`task.txt` can hold the steps one per line:
 
 ```text
-Get a shipping quote by entering the quote section, fill in the provided values, and verify the expected result.
+1. Open "Shipping quote"
+2. Fill in the form
+3. Click "Simulate"
 ```
+
+Check the result with `--expect`, not with a step.
 
 Run it:
 
@@ -354,36 +354,9 @@ Do not combine a positional instruction with `--prompt-file`.
 
 ## Expectations and assertions
 
-Cordy accepts explicit expectations or can infer them from the prompt when they are stated unambiguously.
+Cordy never infers expectations from the prompt. Declare every check explicitly with `--expect`. A `button` expectation keeps the `button` role (it is not turned into a generic `getByText`), and matching is case-insensitive, so `button:Save quote` also matches `SAVE QUOTE` or a name with a visual suffix. Cordy does not invent checks for vague phrases such as `make sure everything works`.
 
-### Expectations inferred from the prompt
-
-Cordy infers one kind of expectation from a Spanish prompt: a button named after `botón` (or `boton`), optionally followed by `con texto` or `de`. This prompt declares a button:
-
-```text
-Simula el envío, llena el formulario y al simular debe mostrar el resumen del envío y un botón de guardar cotización.
-```
-
-(The prompt is Spanish because that is the phrasing Cordy parses.) Cordy proposes:
-
-```text
-visible button: guardar cotización
-```
-
-The generated test contains an assertion equivalent to:
-
-```tsx
-await expect(
-  page
-    .getByRole("button", { name: new RegExp("guardar cotización", "i") })
-    .filter({ visible: true })
-    .first(),
-).toBeVisible();
-```
-
-The button expectation preserves the `button` role; it is not converted into a generic `getByText`. Matching is case-insensitive and allows presentation variations such as `Guardar Cotización`, `GUARDAR COTIZACIÓN`, or a visual suffix.
-
-Visible texts, such as `resumen del envío`, are not inferred. Declare them with `--expect 'text:Resumen del envío'`. Cordy must not invent expectations for vague phrases such as `make sure everything works`. If a condition is not explicit or cannot be mapped to an observable check, no automatic assertion is generated.
+**Breaking change:** earlier versions inferred a button expectation from Spanish `botón de …` phrasing in the prompt. Pass `--expect 'button:<name>'` instead.
 
 ### Explicit expectations
 
@@ -410,7 +383,7 @@ Every matcher `<m>` follows one rule:
 
 ```bash
 npx @nac13k/cordy \
-  "Complete the flow" \
+  'Fill in the form, click "Send"' \
   --start-url https://example.test \
   --input amount=10000 \
   --expect 'text:Application summary' \
@@ -449,10 +422,12 @@ The older flags remain as aliases:
 
 ```bash
 npx @nac13k/cordy \
-  "Get a shipping quote and show the Save quote button as the expected result" \
+  'Open "Shipping quote", fill in the form, click "Simulate"' \
   --start-url https://example.test \
   --input peso=2 \
   --input codigo_postal=44100 \
+  --expect 'button:Save quote' \
+  --approve \
   --output ./playwright/shipping-quote.spec.ts \
   --output-kind test
 ```
@@ -465,7 +440,7 @@ Use `automation` when you want a plain script instead of a Playwright test:
 
 ```bash
 npx @nac13k/cordy \
-  "Complete the flow" \
+  'Fill in the form, click "Send"' \
   --start-url https://example.test \
   --input email=ana@example.com \
   --output ./playwright/flow.ts \
@@ -481,7 +456,7 @@ The output uses Playwright directly. When there are expectations, it also import
 Use `--test-name <slug>` to keep several Cordy tests in the same spec file. The slug uses lowercase letters, digits, and single hyphens (at most 64 characters). It also becomes the test title, so `npx playwright test -g <slug>` runs it. Named tests only work with `--output-kind test`.
 
 ```bash
-npx @nac13k/cordy "Get a shipping quote" --start-url https://example.test \
+npx @nac13k/cordy 'Open "Shipping quote", fill in the form, click "Simulate"' --start-url https://example.test \
   --output ./playwright/flows.spec.ts --test-name cotizar-envio
 ```
 
@@ -504,7 +479,7 @@ test('cotizar-envio', async ({ page }) => {
 Regenerate one test with a new instruction:
 
 ```bash
-npx @nac13k/cordy "Get a shipping quote with the new form" --start-url https://example.test \
+npx @nac13k/cordy 'Open "Shipping quote", fill in the form, click "Simulate"' --start-url https://example.test \
   --output ./playwright/flows.spec.ts --test-name cotizar-envio --update
 ```
 
@@ -527,7 +502,7 @@ Plan without interacting with the site:
 
 ```bash
 npx @nac13k/cordy \
-  "Complete the flow" \
+  'Fill in the form, click "Send"' \
   --start-url https://example.test \
   --input email=ana@example.com \
   --dry-run \
@@ -544,7 +519,7 @@ The allowed value is between `1` and `100`; the default is `20`.
 
 `--dry-run` never writes the `--output` file. With `--test-name`, it prints a preview instead: the import changes as a diff, and whether the test would be appended or replaced (with its current lines). Insert/update conflicts are still reported. Earlier versions wrote a nearly empty file during a dry run.
 
-High-impact clicks run only with `--approve`. A click is high impact when its step is a `submit` step or the prompt's final `simular` click, or when the control's name contains (in any case) `submit`, `enviar`, `simular`, `continuar`, `confirmar`, `calcular`, `solicitar`, `simulate`, `calculate`, `send`, `confirm`, `continue`, `request`, `apply`, `pay`, `purchase`, `buy`, `order`, `delete`, or `remove`. For example, `Simulate`, `Send request`, and `Place order` are high impact. Without it, the click is recorded as `blocked` with `requires --approve`, and nothing is clicked. **Breaking change:** earlier versions ignored `--approve` and always executed the final click, so add `--approve` to existing commands that must complete the flow. Prompt runs stop right after the high-impact click; plan runs continue with their remaining steps. The action must still pass local validation of the role, locator, and page state.
+High-impact clicks run only with `--approve`. A click is high impact when Jev classified its step as `submit` (or it is an explicit `submit` step), or when the control's name contains (in any case) `submit`, `enviar`, `simular`, `continuar`, `confirmar`, `calcular`, `solicitar`, `simulate`, `calculate`, `send`, `confirm`, `continue`, `request`, `apply`, `pay`, `purchase`, `buy`, `order`, `delete`, or `remove`. For example, `Simulate`, `Send request`, and `Place order` are high impact. Without it, the click is recorded as `blocked` with `requires --approve`, and nothing is clicked. **Breaking change:** earlier versions ignored `--approve` and always executed the final click, so add `--approve` to existing commands that must complete the flow. After a high-impact click, the run continues with its remaining steps. The action must still pass local validation of the role, locator, and page state.
 
 ## JSON output and exit codes
 
@@ -552,7 +527,7 @@ For script integration:
 
 ```bash
 npx @nac13k/cordy \
-  "Complete the flow" \
+  'Fill in the form, click "Send"' \
   --start-url https://example.test \
   --json > result.json
 ```
@@ -561,7 +536,7 @@ The result includes fields such as:
 
 ```json
 {
-  "task": "Complete the flow",
+  "task": "Fill in the form, click \"Send\"",
   "startUrl": "https://example.test",
   "actions": [
     {
@@ -580,7 +555,7 @@ The result includes fields such as:
 }
 ```
 
-With `--plan`, the result also has `planSteps`, and it has `errors` when a plan step was not completed or an input was left unused. A prompt run also gets an error when `--max-steps` ends it before its derived steps are done. `warnings` appears when all expectations are negated or a plan step looks like it contains a value.
+Every result also has `planSteps`. It has `errors` when a step was not completed (for example, when `--max-steps` ends the run first) or an input was left unused. `warnings` appears when all expectations are negated or a step looks like it contains a value. **Breaking change:** the `plan` field of earlier prompt runs is gone; read `planSteps` instead.
 
 Exit codes:
 
@@ -595,7 +570,7 @@ Add `--verbose`:
 
 ```bash
 npx @nac13k/cordy \
-  "Complete the flow" \
+  'Fill in the form, click "Send"' \
   --start-url https://example.test \
   --input email=ana@example.com \
   --verbose
@@ -623,7 +598,7 @@ Diagnostics must never show:
 
 ## Plan files
 
-A prompt is parsed with Spanish phrasing rules that only cover a few flows. For any language or app, write the steps yourself in a plan file and pass it with `--plan` (or `--plan -` to read it from stdin):
+A plan file holds the same natural-language steps as a prompt, plus an optional description and explicit step forms. Pass it with `--plan` (or `--plan -` to read it from stdin):
 
 ```yaml
 version: 1
@@ -657,11 +632,11 @@ A plan has at most 50 steps. Values never go in the plan: pass them with `--inpu
 ### How steps run
 
 - Steps run strictly in order, and Cordy decides locally when each one is complete.
-- **click / submit:** the control Jev picks must be named in the step. Its visible name has to appear in the step text as whole words, ignoring accents, case, and punctuation. Put the name in quotes (`clic en "Enviar"`) to require an exact match. Explicit targets use the same matching as prompt targets.
+- **click / submit:** the control Jev picks must be named in the step. Its visible name has to appear in the step text as whole words, ignoring accents, case, and punctuation. Put the name in quotes (`clic en "Enviar"`) to require an exact match. Explicit targets use the same whole-word matching.
 - **fill:** a natural-language fill consumes the pending inputs that have a field on the current screen, so a wizard can have one fill step per screen. The step ends when Jev finds no more matching fields. An explicit `fill` ends when its listed keys are used. If any provided input is still unused when the plan ends, the run fails.
 - **wait:** always waits for the page load event. Durations such as "3 seconds" are ignored, and generated code never sleeps for a fixed time.
 - **submit:** always high impact. A click is also high impact when the control's name contains one of the submission words listed in [Dry run, execution, and step limits](#dry-run-execution-and-step-limits) (Spanish or English, such as `enviar` or `simulate`), whatever the step says. High-impact clicks need `--approve`.
-- Unlike prompt runs, a plan run continues after a high-impact click until its last step.
+- The run continues after a high-impact click until its last step.
 
 The JSON result lists `planSteps`: each step's text, kind, whether Jev classified it, whether it was completed, and the target or input keys it used. If the step limit is reached first, or inputs are left unused, the result has `errors` and the exit code is `1`.
 
@@ -671,27 +646,40 @@ The JSON result lists `planSteps`: each step's text, kind, whether Jev classifie
 npx @nac13k/cordy plan init [plan.yaml]   # write a commented example (never overwrites)
 npx @nac13k/cordy plan schema             # print the JSON Schema, e.g. for LLM structured output
 npx @nac13k/cordy plan check plan.yaml    # validate offline, without Jev or a browser
+npx @nac13k/cordy plan from-prompt '…'    # print the plan a prompt splits into (- reads stdin)
 ```
 
 Validation errors name the location, for example `steps[2].fill: expected a list of input keys`, so an agent can fix the plan from the message.
 
-## Ordered execution plan
+## Prompts are step lists
 
-Cordy creates an in-memory plan before running the browser. The plan extracts the explicit order from the prompt locally—for example, navigate to a section, fill inputs, click `Simulate`, and validate the result—and Jev only resolves the concrete candidate on the current screen for the current step.
+The prompt (positional or `--prompt-file`) is a list of steps. Cordy splits it locally, before anything else runs:
 
-The runtime does not allow steps to be skipped. If the prompt requests the `shipping quote` section but the page only exposes `Track a package`, Cordy blocks the action because of the mismatch instead of navigating to a different section. The plan appears in `--json` output.
+1. On line breaks. A leading `-`, `*`, `•`, `1.`, or `1)` is removed from each line.
+2. On inline numbering, when a one-line prompt starts with `1.` or `1)`: `1. Open "Pricing" 2. Fill in the form 3. Click "Buy"`. The numbers must follow in order, so `espera 3. …` is not split.
+3. On commas and semicolons outside double quotes (`"…"` or `“…”`). A comma between digits (`1,5`) does not split. Quote control names that contain a comma: `click "Yes, continue"`.
 
-### Prompt planning is generic
+Dashes inside a line and words such as `and`/`y` never split a step. A prompt without separators is one step. These are equivalent:
 
-The prompt planner only derives generic steps: navigation to a named section, filling the provided inputs, and the final `simular` click. Earlier versions also contained rules for one specific application. If you relied on them, migrate like this:
+```bash
+npx @nac13k/cordy 'Open "Shipping quote", fill in the form, click "Simulate"' ...
+npx @nac13k/cordy '1. Open "Shipping quote" 2. Fill in the form 3. Click "Simulate"' ...
+npx @nac13k/cordy $'- Open "Shipping quote"\n- Fill in the form\n- Click "Simulate"' ...
+```
 
-- **Extra entry click:** a prompt that asked to simulate a credit used to add a click on a fixed button label before filling the form. Name that click in a plan file instead (`- clic en "<button text>"`).
-- **Inferred result text:** one fixed result heading used to become a visible-text expectation. Declare result texts with `--expect 'text:<text>'`. Only the `botón …` phrasing is still inferred.
-- **Fill proposed on a button:** Cordy used to turn it into a navigation click on an entry button. It now returns `needs_review`, like any other action that does not fit the control. Use a plan step that names the button.
+The steps then run exactly like the natural-language steps of a plan file (see [How steps run](#how-steps-run)): Jev classifies them before the browser opens, a step with two actions is rejected, targets must be named in the step, the run continues until the last step, and every input must be used. The whole prompt is sent to Jev as the task, so keep values out of it; Cordy warns when a step looks like it contains one. The same limits apply: at most 50 steps of up to 300 characters.
 
-### Prompt runs end with their derived steps
+To see how a prompt is split, without Jev or a browser, run `npx @nac13k/cordy plan from-prompt '<prompt>'`. It prints the plan as YAML, ready to save as a plan file.
 
-A prompt run only executes the steps the planner derived. When they are done, Cordy checks the expectations and stops; it never asks Jev for another action. For example, `llena el formulario` only fills the form, and an English prompt such as `Go to the shipping quote section, fill in the form, and click Simulate.` only derives the fill step, so `Simulate` is never clicked. Use a plan file, or the Spanish verbs the planner recognizes (`simula`, `calcula`), for longer flows. If `--max-steps` ends a prompt run before its derived steps are done, the result has an error and the exit code is `1`.
+The runtime does not allow steps to be skipped. If a step asks for the `Shipping quote` section but the page only exposes `Track a package`, Cordy blocks the action instead of clicking something else.
+
+### Migrating from the Spanish prompt planner
+
+**Breaking change:** earlier versions read a Spanish prompt with fixed phrases (`entra a la sección …`, `llena`, `simula`, `botón de …`). That planner is gone:
+
+- `Entra a la sección cotizador de envíos, llena el formulario y simula.` is now split into two steps, and the second one (`llena el formulario y simula`) is rejected because it has two actions. Write one action per step: `Entra a la sección "Cotizador de envíos", llena el formulario, clic en "Simular"`.
+- `simula` no longer adds a hidden click on a control named `simular`. Name the control in a step.
+- Prompt runs no longer stop right after the high-impact click. They continue until the last step, and they fail when an input is left unused.
 
 ## Supported actions and limits
 

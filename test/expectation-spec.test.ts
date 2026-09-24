@@ -99,7 +99,6 @@ describe('collected expectations', () => {
       expect: ['text:Summary', 'button:Continue'],
       expectVisible: ['Summary'],
       expectButtons: ['Continue'],
-      inferred: { visible: ['Summary'], buttons: [] },
     });
     expect(collected.map((item) => item.spec)).toEqual(['text:Summary', 'button:Continue']);
   });
@@ -115,12 +114,7 @@ describe('collected expectations', () => {
     expect(exact.test('https://example.test/result')).toBe(true);
     expect(exact.test('https://example.test/result?x=1')).toBe(false);
   });
-  it('keeps prompt-inferred text literal', () => {
-    const [inferred] = collectExpectations({
-      ...none,
-      inferred: { visible: [], buttons: ['/pre (aprobar)/'] },
-    });
-    if (!('matcher' in inferred)) throw new Error('no matcher');
-    expect(compileMatcher(inferred.matcher, {}).test('/PRE (aprobar)/')).toBe(true);
+  it('collects nothing without expectation flags', () => {
+    expect(collectExpectations(none)).toEqual([]);
   });
 });

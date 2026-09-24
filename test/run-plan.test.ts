@@ -188,30 +188,6 @@ describe('plan file runs', () => {
     ]);
   }, 30_000);
 
-  it('blocks the final click of a prompt-derived run without --approve', async () => {
-    const page = join(dir, 'simulate.html');
-    await writeFile(page, '<label>Monto<input id="amount"></label><button>Simular</button>');
-    fakeJev([
-      { action: 'fill', target: 'el_1', input_key: 'monto' },
-      { action: 'click', target: 'el_2', input_key: 'none' },
-    ]);
-    // Spanish prompt on purpose: the regex planner derives fill + final "simular" click from it.
-    const result = await runCordy(
-      parseCliArgs([
-        'llena el formulario y simula el credito',
-        '--start-url',
-        pathToFileURL(page).href,
-        '--input',
-        'monto=1000',
-      ]),
-    );
-    expect(result.actions.map((record) => [record.action.kind, record.status])).toEqual([
-      ['fill', 'succeeded'],
-      ['click', 'blocked'],
-    ]);
-    expect(result.actions[1].error).toBe('requires --approve');
-  }, 30_000);
-
   it('describes every step in a dry run and warns about values in step texts', async () => {
     fakeJev([], [{ step_0: 'fill', step_1: 'wait' }]);
     // Spanish step texts on purpose: plan steps may be written in any language.
@@ -247,61 +223,123 @@ describe('plan file runs', () => {
     expect(result.errors).toBeUndefined();
   }, 30_000);
 
-  describe('prompt runs end with their derived steps', () => {
+  describe('prompt step lists', () => {
     const quotePage = async () => {
       const page = join(dir, 'quote.html');
-      await writeFile(page, '<label>Peso<input id="peso"></label><button>Simulate</button>');
+      await writeFile(
+        page,
+        '<button>Shipping quote</button><label>Peso<input id="peso"></label><button>Simulate</button><button>Download receipt</button>',
+      );
       return pathToFileURL(page).href;
     };
-    const jevCalls = () =>
-      (globalThis.fetch as unknown as { mock: { calls: unknown[] } }).mock.calls;
-
-    it('stops after the fill when the prompt only derives a fill step', async () => {
-      fakeJev([
-        { action: 'fill', target: 'el_1', input_key: 'peso' },
-        { action: 'click', target: 'el_2', input_key: 'none' },
-      ]);
-      // Spanish prompt on purpose: the planner derives only a fill step from it.
-      const result = await runCordy(
-        parseCliArgs([
-          'llena el formulario',
-          '--start-url',
-          await quotePage(),
-          '--input',
-          'peso=2',
-        ]),
+    const requests = () =>
+      (globalThis.fetch as unknown as { mock: { calls: [unknown, RequestInit][] } }).mock.calls.map(
+        ([, init]) => JSON.parse(String(init.body)),
       );
-      expect(result.actions.map((record) => [record.action.kind, record.status])).toEqual([
+    const kinds = (result: Awaited<ReturnType<typeof runCordy>>) =>
+      result.actions.map((record) => [record.action.kind, record.status]);
+
+    it('runs an English list with plan semantics and sends the prompt as the task', async () => {
+      fakeJev(
+        [
+          { action: 'click', target: 'el_1', input_key: 'none' },
+          { action: 'fill', target: 'el_2', input_key: 'peso' },
+          { action: 'click', target: 'el_3', input_key: 'none' },
+        ],
+        [{ step_0: 'click', step_1: 'fill', step_2: 'submit' }],
+      );
+      const prompt = 'Open "Shipping quote", fill in the form, click "Simulate"';
+      const result = await runCordy(
+        parseCliArgs([prompt, '--start-url', await quotePage(), '--input', 'peso=2', '--approve']),
+      );
+      expect(kinds(result)).toEqual([
+        ['click', 'succeeded'],
         ['fill', 'succeeded'],
+        ['click', 'succeeded'],
       ]);
-      expect(jevCalls()).toHaveLength(1);
       expect(result.errors).toBeUndefined();
-    }, 30_000);
-
-    it('never clicks Simulate for an English prompt that only yields a fill step', async () => {
-      fakeJev([
-        { action: 'fill', target: 'el_1', input_key: 'peso' },
-        { action: 'click', target: 'el_2', input_key: 'none' },
+      expect(result.planSteps.map((step) => [step.text, step.kind, step.status])).toEqual([
+        ['Open "Shipping quote"', 'click', 'done'],
+        ['fill in the form', 'fill', 'done'],
+        ['click "Simulate"', 'submit', 'done'],
       ]);
+      expect(requests()[0].state.task).toBe(prompt);
+    }, 60_000);
+
+    it('continues after an approved submit until the last step', async () => {
+      fakeJev(
+        [
+          { action: 'fill', target: 'el_2', input_key: 'peso' },
+          { action: 'click', target: 'el_3', input_key: 'none' },
+          { action: 'click', target: 'el_4', input_key: 'none' },
+        ],
+        [{ step_0: 'fill', step_1: 'submit', step_2: 'click' }],
+      );
+      // Spanish step texts on purpose: prompt steps may be written in any language.
       const result = await runCordy(
         parseCliArgs([
-          'Go to the shipping quote section, fill in the form, and click Simulate.',
+          '1. llena el formulario 2. envía con "Simulate" 3. clic en "Download receipt"',
+          '--start-url',
+          await quotePage(),
+          '--input',
+          'peso=2',
+          '--approve',
+        ]),
+      );
+      expect(kinds(result)).toEqual([
+        ['fill', 'succeeded'],
+        ['click', 'succeeded'],
+        ['click', 'succeeded'],
+      ]);
+      expect(result.errors).toBeUndefined();
+    }, 60_000);
+
+    it('blocks a submit step without --approve', async () => {
+      fakeJev(
+        [
+          { action: 'fill', target: 'el_2', input_key: 'peso' },
+          { action: 'click', target: 'el_3', input_key: 'none' },
+        ],
+        [{ step_0: 'fill', step_1: 'submit' }],
+      );
+      const result = await runCordy(
+        parseCliArgs([
+          '- fill in the form\n- click "Simulate"',
           '--start-url',
           await quotePage(),
           '--input',
           'peso=2',
         ]),
       );
-      expect(result.actions.map((record) => record.action.kind)).toEqual(['fill']);
-      expect(jevCalls()).toHaveLength(1);
+      expect(kinds(result)).toEqual([
+        ['fill', 'succeeded'],
+        ['click', 'blocked'],
+      ]);
+      expect(result.actions[1].error).toBe('requires --approve');
     }, 30_000);
 
-    it('fails when the step limit ends the run before the derived steps are complete', async () => {
-      fakeJev([{ action: 'fill', target: 'el_1', input_key: 'peso' }]);
-      // Spanish prompt on purpose: the planner derives a fill step and a final "simular" click.
+    it('fails when an input is not used', async () => {
+      fakeJev([{ action: 'click', target: 'el_1', input_key: 'none' }], [{ step_0: 'click' }]);
       const result = await runCordy(
         parseCliArgs([
-          'llena el formulario y simula',
+          'Open "Shipping quote"',
+          '--start-url',
+          await quotePage(),
+          '--input',
+          'peso=2',
+        ]),
+      );
+      expect(result.errors).toEqual(['The plan finished without using these inputs: peso']);
+    }, 30_000);
+
+    it('fails when --max-steps ends the run before the last step', async () => {
+      fakeJev(
+        [{ action: 'fill', target: 'el_2', input_key: 'peso' }],
+        [{ step_0: 'fill', step_1: 'submit' }],
+      );
+      const result = await runCordy(
+        parseCliArgs([
+          'fill in the form, click "Simulate"',
           '--start-url',
           await quotePage(),
           '--input',
@@ -310,27 +348,45 @@ describe('plan file runs', () => {
           '1',
         ]),
       );
-      expect(result.errors).toEqual([
-        'Prompt step 2 (submit: simular) was not completed within --max-steps',
-      ]);
+      expect(result.errors).toEqual(['Plan step 2 ("click "Simulate"") was not completed']);
     }, 30_000);
 
-    it('reports no step-limit error when the run stops on a blocked click', async () => {
-      fakeJev([
-        { action: 'fill', target: 'el_1', input_key: 'peso' },
-        { action: 'click', target: 'el_2', input_key: 'none' },
-      ]);
+    it('rejects a compound step before launching the browser', async () => {
+      fakeJev([], [{ step_0: 'click', step_1: 'compound' }]);
+      // Spanish prompt on purpose: the former regex-planner example is now a compound step.
+      await expect(
+        runCordy(
+          parseCliArgs([
+            'Entra a la sección cotizador de envíos, llena el formulario y simula.',
+            '--start-url',
+            await quotePage(),
+            '--input',
+            'peso=2',
+          ]),
+        ),
+      ).rejects.toThrow(
+        /Plan step 2 \("llena el formulario y simula"\) describes more than one action/,
+      );
+      expect(requests()).toHaveLength(1);
+    }, 30_000);
+
+    it('warns about values in prompt steps and infers no expectations', async () => {
+      fakeJev([], [{ step_0: 'fill', step_1: 'click' }]);
+      // Spanish prompt on purpose: "botón de …" was inferred as an expectation before.
       const result = await runCordy(
         parseCliArgs([
-          'llena el formulario y simula',
+          'llena el correo con ana@example.test, clic en el botón de guardar cotización',
           '--start-url',
           await quotePage(),
-          '--input',
-          'peso=2',
+          '--dry-run',
         ]),
       );
-      expect(result.actions.at(-1)).toMatchObject({ status: 'blocked' });
-      expect(result.errors).toBeUndefined();
+      expect(result.warnings).toEqual([
+        expect.stringMatching(
+          /^Plan step 1 \("llena el correo con ana@example.test"\) may contain/,
+        ),
+      ]);
+      expect(result.expectations).toEqual([]);
     }, 30_000);
   });
 

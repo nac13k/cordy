@@ -3,13 +3,13 @@ import { readFile, writeFile } from 'node:fs/promises';
 import type { ParsedOptions } from './cli-options.js';
 import { loadInputs, loadPrompt } from './inputs.js';
 import { loadPlanFile, planTask, planValueWarnings } from './plan-file.js';
+import { planFromPrompt } from './prompt-steps.js';
 import {
   advanceCursor,
   pendingKeys,
   planReport,
   startCursor,
   stepsFromPlanFile,
-  stepsFromWorkflowPlan,
   workflowContext,
   type PlanStep,
   type PlanStepReport,
@@ -18,7 +18,6 @@ import { JevClient, type StepKind } from './jev.js';
 import type { CordyConfig } from './config.js';
 import { observePage } from './observe.js';
 import type { ActionRecord, PlannedAction } from './domain.js';
-import { inferExpectations } from './expectations.js';
 import { collectExpectations, type Expectation } from './expectation-spec.js';
 import {
   needsEscapeRegex,
@@ -27,7 +26,6 @@ import {
   vacuousPassWarning,
   verifyExpectations,
 } from './expectation-check.js';
-import { createWorkflowPlan, type WorkflowPlan, type WorkflowStep } from './workflow-plan.js';
 import { parseBooleanInput, resolveInputRecord } from './dynamic-inputs.js';
 import {
   decideOutput,
@@ -271,23 +269,15 @@ async function readOptional(file: string) {
 }
 
 export async function runCordy(options: ParsedOptions, config?: CordyConfig) {
-  const planFile = options.plan ? await loadPlanFile(options.plan) : undefined;
-  const task = planFile ? planTask(planFile) : loadPrompt(options);
+  const prompt = options.plan ? undefined : loadPrompt(options);
+  const planFile =
+    prompt === undefined ? await loadPlanFile(options.plan as string) : planFromPrompt(prompt);
+  const task = prompt ?? planTask(planFile);
   const { values: inputTemplates, files } = loadInputs(options);
   const inputs = resolveInputRecord(inputTemplates);
   const startUrl = options.startUrl;
-  const expectationSpecs = collectExpectations(
-    { ...options, inferred: inferExpectations(task) },
-    Object.keys(inputs),
-  );
+  const expectationSpecs = collectExpectations(options, Object.keys(inputs));
   const allKeys = [...Object.keys(inputs), ...Object.keys(files)];
-  const plan = planFile
-    ? undefined
-    : createWorkflowPlan(
-        task,
-        { ...inputs, ...Object.fromEntries(Object.keys(files).map((key) => [key, ''])) },
-        expectationSpecs,
-      );
   if (!startUrl) throw new Error('set --start-url to open the browser');
   if (options.output && options.testName)
     planManagedWrite(await readOptional(options.output), options.testName, options.update);
@@ -296,15 +286,13 @@ export async function runCordy(options: ParsedOptions, config?: CordyConfig) {
     endpoint: config?.jev.endpoint,
     verbose: options.verbose,
   });
-  const naturalSteps = (planFile?.steps ?? []).flatMap((step) =>
+  const naturalSteps = planFile.steps.flatMap((step) =>
     step.kind === 'natural' ? [{ index: step.index, text: step.text }] : [],
   );
   const classified = naturalSteps.length
     ? await jev.classifySteps(task, naturalSteps)
     : new Map<number, StepKind>();
-  const steps = planFile
-    ? stepsFromPlanFile(planFile, (index) => classified.get(index) as StepKind)
-    : stepsFromWorkflowPlan(plan as WorkflowPlan);
+  const steps = stepsFromPlanFile(planFile, (index) => classified.get(index) as StepKind);
   let cursor = startCursor();
   const errors: string[] = [];
   const recordSteps: number[] = [];
@@ -313,13 +301,9 @@ export async function runCordy(options: ParsedOptions, config?: CordyConfig) {
   const actions: ActionRecord[] = [];
   try {
     await page.goto(startUrl);
-    let stepLimitReached = true;
     for (let step = 0; step < options.maxSteps; step += 1) {
       const planStep = steps[cursor.index];
-      if (!planStep) {
-        stepLimitReached = false;
-        break;
-      }
+      if (!planStep) break;
       let record: ActionRecord;
       if (planStep?.kind === 'wait')
         record = await execute(
@@ -398,19 +382,9 @@ export async function runCordy(options: ParsedOptions, config?: CordyConfig) {
         allKeys,
         consumedInputKeys(actions),
       ).cursor;
-      if (
-        record.status !== 'succeeded' ||
-        (!planFile && record.action.kind === 'click' && record.action.highImpact)
-      ) {
-        stepLimitReached = false;
-        break;
-      }
+      if (record.status !== 'succeeded') break;
     }
-    if (!planFile && !options.dryRun && stepLimitReached && steps[cursor.index])
-      errors.push(
-        `Prompt step ${cursor.index + 1} (${describePlanStep(steps[cursor.index])}) was not completed within --max-steps`,
-      );
-    if (planFile && !options.dryRun) {
+    if (!options.dryRun) {
       const incomplete = steps[cursor.index];
       if (incomplete)
         errors.push(
@@ -427,7 +401,7 @@ export async function runCordy(options: ParsedOptions, config?: CordyConfig) {
       ? plannedResults(expectationSpecs)
       : await verifyExpectations(page, expectationSpecs, inputs);
     const warnings = [
-      ...(planFile ? planValueWarnings(planFile) : []),
+      ...planValueWarnings(planFile),
       ...[vacuousPassWarning(expectationSpecs)].filter((item): item is string => Boolean(item)),
     ];
     const result: {
@@ -435,8 +409,7 @@ export async function runCordy(options: ParsedOptions, config?: CordyConfig) {
       startUrl: string;
       headed: boolean;
       dryRun: boolean;
-      plan?: WorkflowPlan;
-      planSteps?: PlanStepReport[];
+      planSteps: PlanStepReport[];
       errors?: string[];
       actions: ActionRecord[];
       expectations: typeof expectations;
@@ -448,7 +421,7 @@ export async function runCordy(options: ParsedOptions, config?: CordyConfig) {
       startUrl,
       headed: options.headed,
       dryRun: options.dryRun,
-      ...(plan ? { plan } : { planSteps: planReport(steps, actions, recordSteps, cursor) }),
+      planSteps: planReport(steps, actions, recordSteps, cursor),
       actions,
       expectations,
       ...(errors.length ? { errors } : {}),

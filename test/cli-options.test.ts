@@ -118,6 +118,11 @@ describe('cordy CLI options', () => {
       /mutually exclusive/,
     );
   });
+  it('accepts a prompt that starts with a dash list marker', () => {
+    expect(parseCliArgs(['- clic en "Registro"\n- envía', '--headed']).task).toBe(
+      '- clic en "Registro"\n- envía',
+    );
+  });
   it('rejects both positional task and prompt file', () => {
     expect(() => parseCliArgs(['task', '--prompt-file', 'task.md'])).toThrow(/mutually exclusive/);
   });
