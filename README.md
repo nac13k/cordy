@@ -61,13 +61,13 @@ node --version
 You do not need to install Cordy globally:
 
 ```bash
-npx cordy --help
+npx @nac13k/cordy --help
 ```
 
 To prevent `npx` from unexpectedly selecting a different version, pin the version:
 
 ```bash
-npx cordy@0.1.0 --help
+npx @nac13k/cordy@0.1.1 --help
 ```
 
 Install Playwright browsers once per machine:
@@ -81,7 +81,7 @@ npx playwright install chromium
 Recommended for reproducible test suites:
 
 ```bash
-npm install --save-dev cordy
+npm install --save-dev @nac13k/cordy
 npx playwright install chromium
 ```
 
@@ -94,7 +94,7 @@ npx cordy "Complete the form" --start-url https://example.test
 ### Global installation
 
 ```bash
-npm install --global cordy
+npm install --global @nac13k/cordy
 npx playwright install chromium
 cordy --help
 ```

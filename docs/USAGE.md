@@ -20,14 +20,14 @@ Jev is not a code executor. It never receives API keys, cookies, authorization h
 For a test project:
 
 ```bash
-npm install --save-dev cordy
+npm install --save-dev @nac13k/cordy
 npx playwright install chromium
 ```
 
 For a one-off try:
 
 ```bash
-npx cordy@0.1.0 --help
+npx @nac13k/cordy@0.1.1 --help
 npx playwright install chromium
 ```
 
