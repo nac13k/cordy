@@ -1,5 +1,5 @@
 import { chromium, type Browser, type Page } from '@playwright/test';
-import { writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import type { ParsedOptions } from './cli-options.js';
 import { loadInputs, loadPrompt } from './inputs.js';
 import { JevClient } from './jev.js';
@@ -9,6 +9,12 @@ import type { ActionRecord, PlannedAction } from './domain.js';
 import { inferExpectations } from './expectations.js';
 import { createWorkflowPlan, type WorkflowPlan, type WorkflowStep } from './workflow-plan.js';
 import { resolveInputRecord } from './dynamic-inputs.js';
+import {
+  decideOutput,
+  planManagedWrite,
+  renderImports,
+  type RequiredImport,
+} from './managed-output.js';
 
 export type GeneratedInputSource =
   { kind: 'inline'; values: Record<string, string> } | { kind: 'file'; path: string };
@@ -36,39 +42,20 @@ function locatorFor(page: Page, locator: { strategy: string; value: string }) {
   return page.locator(locator.value);
 }
 
-export function generateTypeScript(
-  actions: ActionRecord[],
-  startUrl?: string,
-  outputKind: 'test' | 'automation' = 'test',
-  expectVisible: string[] = [],
-  expectButtons: string[] = [],
-  expectUrl: string[] = [],
-  inputSource: GeneratedInputSource = { kind: 'inline', values: {} },
-) {
-  const lines =
-    outputKind === 'test'
-      ? [
-          "import { expect, test } from '@playwright/test';",
-          "import { resolveInputRecord } from 'cordy';",
-          '',
-          "test('cordy automation', async ({ page }) => {",
-        ]
-      : [
-          "import { chromium } from 'playwright';",
-          "import { resolveInputRecord } from 'cordy';",
-          '',
-          '(async () => {',
-          '  const browser = await chromium.launch({ headless: false });',
-          '  const page = await browser.newPage();',
-        ];
-  const inputDeclaration =
-    inputSource.kind === 'inline'
-      ? `  const input = ${inlineInputSource(inputSource.values)} as Record<string, string>;`
-      : `  const input = resolveInputRecord(JSON.parse(readFileSync(${JSON.stringify(inputSource.path)}, 'utf8')) as Record<string, string>);`;
-  if (inputSource.kind === 'file') lines.splice(1, 0, "import { readFileSync } from 'node:fs';");
-  const declarationIndex =
-    lines.findIndex((line) => line.startsWith(outputKind === 'test' ? "test('" : '(async')) + 1;
-  lines.splice(declarationIndex, 0, inputDeclaration);
+export function requiredImports(inputSource: GeneratedInputSource): RequiredImport[] {
+  return [
+    { module: '@playwright/test', names: ['expect', 'test'] },
+    ...(inputSource.kind === 'file' ? [{ module: 'node:fs', names: ['readFileSync'] }] : []),
+    { module: 'cordy', names: ['resolveInputRecord'] },
+  ];
+}
+function inputDeclaration(inputSource: GeneratedInputSource) {
+  return inputSource.kind === 'inline'
+    ? `  const input = ${inlineInputSource(inputSource.values)} as Record<string, string>;`
+    : `  const input = resolveInputRecord(JSON.parse(readFileSync(${JSON.stringify(inputSource.path)}, 'utf8')) as Record<string, string>);`;
+}
+function actionLines(actions: ActionRecord[], startUrl?: string) {
+  const lines: string[] = [];
   if (startUrl) lines.push(`  await page.goto(${JSON.stringify(startUrl)});`);
   for (const record of actions.filter((item) => item.status === 'succeeded')) {
     const action = record.action;
@@ -89,34 +76,99 @@ export function generateTypeScript(
       lines.push(`  await page.${locatorExpression(action.locator)}.click();`);
     if (action.kind === 'wait') lines.push("  await page.waitForLoadState('domcontentloaded');");
   }
-  if (outputKind === 'test') {
-    for (const text of expectVisible)
-      lines.push(
-        `  await expect(page.getByText(new RegExp(${JSON.stringify(text)}, 'i')).first()).toBeVisible();`,
-      );
-    for (const button of expectButtons)
-      lines.push(
-        `  await expect(page.getByRole('button', { name: new RegExp(${JSON.stringify(button)}, 'i') })).toBeVisible();`,
-      );
-    for (const url of expectUrl)
-      lines.push(`  await expect(page).toHaveURL(${JSON.stringify(url)});`);
+  return lines;
+}
+function testBody(
+  title: string,
+  actions: ActionRecord[],
+  startUrl: string | undefined,
+  expectVisible: string[],
+  expectButtons: string[],
+  expectUrl: string[],
+  inputSource: GeneratedInputSource,
+) {
+  const lines = [
+    `test('${title.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}', async ({ page }) => {`,
+    inputDeclaration(inputSource),
+    ...actionLines(actions, startUrl),
+  ];
+  for (const text of expectVisible)
     lines.push(
-      '});',
+      `  await expect(page.getByText(new RegExp(${JSON.stringify(text)}, 'i')).first()).toBeVisible();`,
+    );
+  for (const button of expectButtons)
+    lines.push(
+      `  await expect(page.getByRole('button', { name: new RegExp(${JSON.stringify(button)}, 'i') })).toBeVisible();`,
+    );
+  for (const url of expectUrl)
+    lines.push(`  await expect(page).toHaveURL(${JSON.stringify(url)});`);
+  lines.push('});');
+  return lines;
+}
+
+export function generateManagedBlock(
+  slug: string,
+  actions: ActionRecord[],
+  startUrl?: string,
+  expectVisible: string[] = [],
+  expectButtons: string[] = [],
+  expectUrl: string[] = [],
+  inputSource: GeneratedInputSource = { kind: 'inline', values: {} },
+) {
+  return [
+    `// cordy:begin ${slug}`,
+    ...testBody(slug, actions, startUrl, expectVisible, expectButtons, expectUrl, inputSource),
+    `// cordy:end ${slug}`,
+  ].join('\n');
+}
+
+export function generateTypeScript(
+  actions: ActionRecord[],
+  startUrl?: string,
+  outputKind: 'test' | 'automation' = 'test',
+  expectVisible: string[] = [],
+  expectButtons: string[] = [],
+  expectUrl: string[] = [],
+  inputSource: GeneratedInputSource = { kind: 'inline', values: {} },
+  testTitle = 'cordy automation',
+) {
+  if (outputKind === 'test')
+    return [
+      ...renderImports(requiredImports(inputSource)),
+      '',
+      ...testBody(
+        testTitle,
+        actions,
+        startUrl,
+        expectVisible,
+        expectButtons,
+        expectUrl,
+        inputSource,
+      ),
       '',
       '// Inputs are intentionally external and must be provided by the generated consumer.',
+    ].join('\n');
+  const lines = [
+    "import { chromium } from 'playwright';",
+    ...(inputSource.kind === 'file' ? ["import { readFileSync } from 'node:fs';"] : []),
+    "import { resolveInputRecord } from 'cordy';",
+    '',
+    '(async () => {',
+    inputDeclaration(inputSource),
+    '  const browser = await chromium.launch({ headless: false });',
+    '  const page = await browser.newPage();',
+    ...actionLines(actions, startUrl),
+  ];
+  for (const text of expectVisible)
+    lines.push(
+      `  await page.getByText(${JSON.stringify(text)}).first().waitFor({ state: 'visible' });`,
     );
-  } else {
-    for (const text of expectVisible)
-      lines.push(
-        `  await page.getByText(${JSON.stringify(text)}).first().waitFor({ state: 'visible' });`,
-      );
-    for (const button of expectButtons)
-      lines.push(
-        `  await page.getByRole('button', { name: new RegExp(${JSON.stringify(button)}, 'i') }).waitFor({ state: 'visible' });`,
-      );
-    for (const url of expectUrl) lines.push(`  await page.waitForURL(${JSON.stringify(url)});`);
-    lines.push('  await browser.close();', '})();');
-  }
+  for (const button of expectButtons)
+    lines.push(
+      `  await page.getByRole('button', { name: new RegExp(${JSON.stringify(button)}, 'i') }).waitFor({ state: 'visible' });`,
+    );
+  for (const url of expectUrl) lines.push(`  await page.waitForURL(${JSON.stringify(url)});`);
+  lines.push('  await browser.close();', '})();');
   return lines.join('\n');
 }
 function escapeRegex(value: string) {
@@ -238,6 +290,15 @@ async function execute(
   }
 }
 
+async function readOptional(file: string) {
+  try {
+    return await readFile(file, 'utf8');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+    throw error;
+  }
+}
+
 export async function runCordy(options: ParsedOptions, config?: CordyConfig) {
   const task = loadPrompt(options);
   const inputTemplates = loadInputs(options);
@@ -248,6 +309,8 @@ export async function runCordy(options: ParsedOptions, config?: CordyConfig) {
   const expectVisible = [...options.expectVisible, ...inferred.visible];
   const expectButtons = [...options.expectButtons, ...inferred.buttons];
   if (!startUrl) throw new Error('set --start-url to open the browser');
+  if (options.output && options.testName)
+    planManagedWrite(await readOptional(options.output), options.testName, options.update);
   const browser: Browser = await chromium.launch({ headless: !options.headed });
   const page = await browser.newPage();
   const actions: ActionRecord[] = [];
@@ -348,7 +411,17 @@ export async function runCordy(options: ParsedOptions, config?: CordyConfig) {
             status: page.url() === url ? ('passed' as const) : ('failed' as const),
           })),
         ];
-    const result = {
+    const result: {
+      task: string;
+      startUrl: string;
+      headed: boolean;
+      dryRun: boolean;
+      plan: WorkflowPlan;
+      actions: ActionRecord[];
+      expectations: typeof expectations;
+      output?: { file: string; written: boolean; message?: string };
+      diff?: string;
+    } = {
       task,
       startUrl,
       headed: options.headed,
@@ -357,22 +430,50 @@ export async function runCordy(options: ParsedOptions, config?: CordyConfig) {
       actions,
       expectations,
     };
-    if (options.output)
-      await writeFile(
-        options.output,
-        generateTypeScript(
-          actions,
-          startUrl,
-          options.outputKind,
-          expectVisible,
-          expectButtons,
-          options.expectUrl,
-          options.inputFile
-            ? { kind: 'file', path: options.inputFile }
-            : { kind: 'inline', values: inputTemplates },
-        ),
-        'utf8',
-      );
+    if (options.output) {
+      const inputSource: GeneratedInputSource = options.inputFile
+        ? { kind: 'file', path: options.inputFile }
+        : { kind: 'inline', values: inputTemplates };
+      const decision = decideOutput({
+        file: options.output,
+        current: await readOptional(options.output),
+        testName: options.testName,
+        update: options.update,
+        dryRun: options.dryRun,
+        diff: options.diff,
+        succeeded:
+          actions.every((record) => record.status === 'succeeded') &&
+          expectations.every((expectation) => expectation.status !== 'failed'),
+        requiredImports: requiredImports(inputSource),
+        renderFile: () =>
+          generateTypeScript(
+            actions,
+            startUrl,
+            options.outputKind,
+            expectVisible,
+            expectButtons,
+            options.expectUrl,
+            inputSource,
+          ),
+        renderBlock: () =>
+          generateManagedBlock(
+            options.testName as string,
+            actions,
+            startUrl,
+            expectVisible,
+            expectButtons,
+            options.expectUrl,
+            inputSource,
+          ),
+      });
+      if (decision.write !== undefined) await writeFile(options.output, decision.write, 'utf8');
+      result.output = {
+        file: options.output,
+        written: decision.write !== undefined,
+        ...(decision.message ? { message: decision.message } : {}),
+      };
+      if (decision.diff !== undefined) result.diff = decision.diff;
+    }
     return result;
   } finally {
     await browser.close();
