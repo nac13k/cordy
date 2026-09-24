@@ -13,13 +13,23 @@ Cordy is a TypeScript CLI for designing and running Playwright automations from 
 
 ## What is it for?
 
-Cordy turns an instruction such as:
+Cordy turns a Spanish instruction such as:
 
 ```text
-Go to the shipping quote section, fill in the form, and click Simulate.
+Entra a la sección cotizador de envíos, llena el formulario y simula.
 ```
 
-into a reproducible test flow:
+("Go to the shipping quote section, fill in the form, and simulate.") The instruction is in Spanish because the prompt planner only recognizes Spanish phrasing: `entra`/`navega a la sección …`, `llena`, `simula`/`calcula`, and `botón de …`. For any other language, or for flows those phrases cannot describe, write the steps in a [plan file](#plan-files), in any language:
+
+```yaml
+version: 1
+steps:
+  - Go to the "Shipping quote" section
+  - Fill in the form
+  - Click "Simulate"
+```
+
+Either one becomes a reproducible test flow:
 
 1. Observe the visible controls on the page.
 2. Build and validate an ordered execution plan.
@@ -30,6 +40,8 @@ into a reproducible test flow:
 7. Optionally generate a TypeScript test ready for `@playwright/test`.
 
 Cordy does not allow Jev to execute arbitrary JavaScript or Playwright. Jev proposes structured decisions; Cordy keeps control of the workflow, and Playwright executes only the allowed actions.
+
+> The prompts in the command examples below are written in English to show the flags. The planner only derives steps from Spanish phrasing, so for a real run write the prompt in Spanish or pass a plan file with `--plan`.
 
 ## Why is it called Cordy?
 
