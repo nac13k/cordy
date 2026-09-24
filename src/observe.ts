@@ -30,17 +30,24 @@ export async function observePage(
             placeholder?: string;
             value?: string;
             disabled?: boolean;
+            files?: FileList | null;
+            multiple?: boolean;
           };
+          const isFile = el.tagName.toLowerCase() === 'input' && el.type === 'file';
           const explicitLabel = (el as HTMLInputElement).labels?.[0]?.innerText?.trim();
           const label =
             el.getAttribute('aria-label') || explicitLabel || el.getAttribute('name') || undefined;
+          const ancestorText = isFile
+            ? (el.parentElement?.innerText?.trim().replace(/\s+/g, ' ').slice(0, 80) ?? '')
+            : '';
           const name =
             label ||
             el.innerText?.trim() ||
             el.getAttribute('title') ||
+            (isFile ? el.getAttribute('id') || ancestorText : '') ||
             `${el.tagName.toLowerCase()}-${index + 1}`;
           const role =
-            el.getAttribute('role') ||
+            (isFile ? 'file' : el.getAttribute('role')) ||
             (el.tagName.toLowerCase() === 'a'
               ? 'link'
               : el.tagName.toLowerCase() === 'button'
@@ -60,7 +67,16 @@ export async function observePage(
           })();
           const id = el.getAttribute('id');
           const event = el.getAttribute('data-event');
-          const uniqueSelector = event ? `[data-event="${event}"]` : id ? `#${id}` : undefined;
+          const fieldName = el.getAttribute('name');
+          const uniqueSelector = event
+            ? `[data-event="${event}"]`
+            : id
+              ? `#${id}`
+              : isFile && fieldName
+                ? `input[type="file"][name="${fieldName}"]`
+                : isFile
+                  ? `input[type="file"] >> nth=${[...document.querySelectorAll('input[type="file"]')].indexOf(el)}`
+                  : undefined;
           return {
             id: `el_${index + 1}`,
             role,
@@ -68,7 +84,9 @@ export async function observePage(
             label,
             placeholder: el.placeholder || undefined,
             inputType: el.type,
-            hasValue: Boolean(el.value),
+            hasValue: isFile ? Boolean(el.files?.length) : Boolean(el.value),
+            accept: isFile ? el.getAttribute('accept') || undefined : undefined,
+            multiple: isFile ? Boolean(el.multiple) : undefined,
             uniqueSelector,
             valueState: 'empty' as const,
             visible,
@@ -76,7 +94,7 @@ export async function observePage(
           };
         }),
       )
-  ).filter((element) => element.visible);
+  ).filter((element) => element.visible || element.role === 'file');
   const interactiveElements: InteractiveElement[] = elements.map((element) => ({
     ...element,
     valueState: redactValue(element.inputType, element.name, element.hasValue),
@@ -84,7 +102,7 @@ export async function observePage(
       ...(element.uniqueSelector
         ? [{ strategy: 'locator' as const, value: element.uniqueSelector }]
         : []),
-      ...(element.role && element.name
+      ...(element.role && element.name && element.role !== 'file'
         ? [{ strategy: 'getByRole' as const, value: `${element.role}:${element.name}` }]
         : []),
       ...(element.label ? [{ strategy: 'getByLabel' as const, value: element.label }] : []),

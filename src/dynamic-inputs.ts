@@ -49,11 +49,27 @@ export function resolveInputTemplate(value: string, context: DynamicInputContext
   );
 }
 
+export function parseBooleanInput(value: string, key: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'true') return true;
+  if (normalized === 'false') return false;
+  throw new Error(`invalid boolean input: ${key} must be true or false`);
+}
+
+function isFileEntry(value: unknown) {
+  return (
+    typeof value === 'object' && value !== null && (value as { type?: unknown }).type === 'file'
+  );
+}
+
+/** Resolves value inputs. Typed file entries (`{ "type": "file", ... }`) are skipped. */
 export function resolveInputRecord(
-  inputs: Record<string, string>,
+  inputs: Record<string, unknown>,
   context: DynamicInputContext = {},
-) {
+): Record<string, string> {
   return Object.fromEntries(
-    Object.entries(inputs).map(([key, value]) => [key, resolveInputTemplate(value, context)]),
+    Object.entries(inputs)
+      .filter(([, value]) => !isFileEntry(value))
+      .map(([key, value]) => [key, resolveInputTemplate(String(value), context)]),
   );
 }

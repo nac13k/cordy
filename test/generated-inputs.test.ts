@@ -3,7 +3,7 @@ import { generateTypeScript } from '../src/run.js';
 
 describe('generated input sources', () => {
   it('embeds inline inputs as a fixed input constant', () => {
-    const source = generateTypeScript([], 'https://example.test', 'test', [], [], [], {
+    const source = generateTypeScript([], 'https://example.test', 'test', [], {
       kind: 'inline',
       values: { email: 'ana@example.test' },
     });
@@ -13,7 +13,7 @@ describe('generated input sources', () => {
   });
 
   it('preserves inline templates for every generated-test execution', () => {
-    const source = generateTypeScript([], 'https://example.test', 'test', [], [], [], {
+    const source = generateTypeScript([], 'https://example.test', 'test', [], {
       kind: 'inline',
       values: { email: 'correo+${timestamp()}@example.com' },
     });
@@ -22,7 +22,7 @@ describe('generated input sources', () => {
   });
 
   it('reads file inputs at test execution time', () => {
-    const source = generateTypeScript([], 'https://example.test', 'test', [], [], [], {
+    const source = generateTypeScript([], 'https://example.test', 'test', [], {
       kind: 'file',
       path: './inputs.json',
     });
@@ -32,7 +32,7 @@ describe('generated input sources', () => {
   });
 
   it('keeps secret-like inline values external', () => {
-    const source = generateTypeScript([], 'https://example.test', 'test', [], [], [], {
+    const source = generateTypeScript([], 'https://example.test', 'test', [], {
       kind: 'inline',
       values: { password: 'do-not-inline' },
     });

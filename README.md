@@ -39,7 +39,7 @@ The Cordyceps reference also connects to the visual identity: a brain and a mush
 
 The name is short and memorable, but its meaning is intentional: the user expresses intent in natural language, Jev helps interpret it, Cordy controls the boundary and the sequence, and Playwright performs the verifiable browser work.
 
-> Cordy is designed for test flows. During a normal execution it fills the inputs, performs the selected final click, and stops immediately after that action. Do not use it against production systems or for irreversible operations without independent authorization.
+> Cordy is designed for test flows. It fills the inputs and runs the final high-impact click only when you pass `--approve`; a prompt run stops right after that click. Do not use it against production systems or for irreversible operations without independent authorization.
 
 ## Requirements
 
@@ -67,8 +67,10 @@ npx @nac13k/cordy --help
 To prevent `npx` from unexpectedly selecting a different version, pin the version:
 
 ```bash
-npx @nac13k/cordy@0.1.1 --help
+npx @nac13k/cordy@0.2.0 --help
 ```
+
+Always use the scoped name `@nac13k/cordy` with `npx`. The unscoped `cordy` package on npm is an unrelated project, so `npx @nac13k/cordy` can download and run it when Cordy is not installed in your project. The examples in this README use `npx @nac13k/cordy`, which also runs the locally installed version when there is one.
 
 Install Playwright browsers once per machine:
 
@@ -85,10 +87,10 @@ npm install --save-dev @nac13k/cordy
 npx playwright install chromium
 ```
 
-Run the local binary:
+Run the local binary (inside npm scripts you can call it as `cordy`):
 
 ```bash
-npx cordy "Complete the form" --start-url https://example.test
+npx @nac13k/cordy "Complete the form" --start-url https://example.test
 ```
 
 ### Global installation
@@ -120,7 +122,7 @@ JEV_API_KEY
 To change the variable name, create a configuration file:
 
 ```bash
-npx cordy init
+npx @nac13k/cordy init
 ```
 
 This creates `cordy.config.toml`:
@@ -140,7 +142,7 @@ max_steps = 20
 The configuration contains only the environment-variable name, never its value. You can also generate YAML:
 
 ```bash
-npx cordy init --format yaml
+npx @nac13k/cordy init --format yaml
 ```
 
 Cordy automatically discovers the first existing file in the current directory from this list:
@@ -154,7 +156,7 @@ cordy.config.yml
 Use `--config` to provide an explicit path:
 
 ```bash
-npx cordy --config ./config/cordy.config.toml \
+npx @nac13k/cordy --config ./config/cordy.config.toml \
   "Complete the form" \
   --start-url https://example.test
 ```
@@ -164,7 +166,7 @@ npx cordy --config ./config/cordy.config.toml \
 ```bash
 export JEV_API_KEY='your-jev-credential'
 
-npx cordy \
+npx @nac13k/cordy \
   "Complete the registration form" \
   --start-url https://example.test/registration \
   --input email=ana@example.com \
@@ -187,7 +189,7 @@ example.test
 To show the browser:
 
 ```bash
-npx cordy \
+npx @nac13k/cordy \
   "Complete the registration form" \
   --start-url https://example.test/registration \
   --input email=ana@example.com \
@@ -203,14 +205,18 @@ npx cordy \
 Repeat `--input` for every value required by the flow:
 
 ```bash
-npx cordy \
+npx @nac13k/cordy \
   "Get a shipping quote" \
   --start-url https://example.test \
-  --input weight=3500000 \
-  --input postal_code=2500000
+  --input peso=2 \
+  --input codigo_postal=44100
 ```
 
 Values are used locally to execute `fill`, `select`, or `check`. Jev receives input names and availability, but never the real values.
+
+An argument is read as `key=value` whenever the text before the first `=` is a valid key (a letter or `_`, then letters, digits, `_`, `.`, or `-`). The value can contain anything, including `=` or a path such as `--input report=./data/report.json`. Any other argument is read as the path of a JSON inputs file.
+
+Inputs used to set a checkbox (`check`) must be `true` or `false` (case-insensitive). Any other value fails the action instead of leaving the checkbox unchecked, both in the live run and in generated code.
 
 ### Inputs from JSON
 
@@ -220,20 +226,55 @@ Create `inputs.json`:
 {
   "email": "ana@example.com",
   "name": "Ana",
-  "weight": "3500000"
+  "codigo_postal": "44100"
 }
 ```
 
 Pass it with `--input`:
 
 ```bash
-npx cordy \
+npx @nac13k/cordy \
   --prompt-file ./task.txt \
   --input ./inputs.json \
   --start-url https://example.test
 ```
 
 Do not store passwords or tokens in a versioned JSON file. Use a secret store or generate the file temporarily outside the repository.
+
+### File uploads
+
+Pass files with `--file key=path`. Repeat the flag for each file input, and separate several files for one input with commas:
+
+```bash
+npx @nac13k/cordy \
+  "Completa el registro y sube la identificación" \
+  --start-url https://example.test \
+  --input name=Ana \
+  --file id_document=./fixtures/id.pdf \
+  --file attachments=./fixtures/a.pdf,./fixtures/b.pdf
+```
+
+(The prompt is Spanish on purpose; it is the phrasing Cordy's planner parses.)
+
+In an inputs JSON file, use a typed entry:
+
+```json
+{
+  "name": "Ana",
+  "id_document": { "type": "file", "path": "./fixtures/id.pdf" },
+  "attachments": { "type": "file", "paths": ["./fixtures/a.pdf", "./fixtures/b.pdf"] }
+}
+```
+
+- Paths are relative to the directory where you run the command, which is expected to be the project root. This also applies to paths inside an inputs JSON file.
+- Every file must exist and be readable. Cordy checks this before opening the browser, even with `--dry-run`.
+- A key cannot be both a value (`--input`) and a file (`--file`).
+- File inputs are found even when they are hidden behind a styled button or drop zone.
+- Jev only learns that a key is a file input. It never receives paths, file names, sizes, or contents, and `--verbose` shows the key as `id_document (file)`.
+- Cordy blocks the upload (`needs_review`) when the target is not a file input, when a file does not match the input's `accept` list, or when several files go to an input without `multiple`.
+- Generated code declares the same relative paths in a `files` constant and uploads them with `setInputFiles`.
+
+Not supported yet: file inputs that only appear after clicking a button (the file-chooser pattern), and drop zones without a file input.
 
 ## Dynamic inputs
 
@@ -242,7 +283,7 @@ Inputs can contain safe templates that Cordy resolves once when each execution s
 Examples:
 
 ```bash
-npx cordy \
+npx @nac13k/cordy \
   "Complete the registration" \
   --start-url https://example.test \
   --input email='email+${timestamp()}@example.com' \
@@ -284,13 +325,13 @@ env \
 `task.txt` can contain a longer instruction:
 
 ```text
-Get a shipping quote by entering the simulation section, fill in the provided values, and verify the expected result.
+Get a shipping quote by entering the quote section, fill in the provided values, and verify the expected result.
 ```
 
 Run it:
 
 ```bash
-npx cordy \
+npx @nac13k/cordy \
   --prompt-file ./task.txt \
   --input ./inputs.json \
   --start-url https://example.test \
@@ -305,70 +346,88 @@ Cordy accepts explicit expectations or can infer them from the prompt when they 
 
 ### Expectations inferred from the prompt
 
-This prompt declares two expected results:
+Cordy infers one kind of expectation from a Spanish prompt: a button named after `botón` (or `boton`), optionally followed by `con texto` or `de`. This prompt declares a button:
 
 ```text
-Get a shipping quote, fill in the form, and after simulation show a screen with the shipment summary and a save quote button.
+Simula el envío, llena el formulario y al simular debe mostrar el resumen del envío y un botón de guardar cotización.
 ```
 
-Cordy proposes:
+(The prompt is Spanish because that is the phrasing Cordy parses.) Cordy proposes:
 
 ```text
-visible text: shipment summary
-visible button: save quote
+visible button: guardar cotización
 ```
 
-The generated test contains assertions equivalent to:
+The generated test contains an assertion equivalent to:
 
 ```tsx
 await expect(
-  page.getByText(new RegExp("shipment summary", "i")).first(),
-).toBeVisible();
-
-await expect(
-  page.getByRole("button", {
-    name: new RegExp("save quote", "i"),
-  }),
+  page
+    .getByRole("button", { name: new RegExp("guardar cotización", "i") })
+    .filter({ visible: true })
+    .first(),
 ).toBeVisible();
 ```
 
-The button expectation preserves the `button` role; it is not converted into a generic `getByText`. Matching is case-insensitive and allows presentation variations such as `Save quote`, `SAVE QUOTE`, or a visual suffix.
+The button expectation preserves the `button` role; it is not converted into a generic `getByText`. Matching is case-insensitive and allows presentation variations such as `Guardar Cotización`, `GUARDAR COTIZACIÓN`, or a visual suffix.
 
-Cordy must not invent expectations for vague phrases such as `make sure everything works`. If a condition is not explicit or cannot be mapped to an observable check, no automatic assertion is generated.
+Visible texts, such as `resumen del envío`, are not inferred. Declare them with `--expect 'text:Resumen del envío'`. Cordy must not invent expectations for vague phrases such as `make sure everything works`. If a condition is not explicit or cannot be mapped to an observable check, no automatic assertion is generated.
 
 ### Explicit expectations
 
-Visible text:
+Declare expectations with the repeatable `--expect '[not-]<kind>:<arg>'` flag. Cordy splits the spec at the first `:`, so arguments such as URLs keep their own colons.
+
+| Kind | Argument | Passes when |
+|---|---|---|
+| `text` | `<m>` | a visible element's text matches |
+| `button` | `<m>` | a visible button's accessible name matches |
+| `button-enabled` / `button-disabled` | `<m>` | a button whose name matches is enabled / disabled |
+| `url` | `<m>` | the page URL matches |
+| `title` | `<m>` | the page title matches |
+| `value` | `<label>=<m>` | the form control with that label has a matching value (split at the first `=`) |
+| `checked` / `unchecked` | `<label>` | the control with that label is checked / unchecked |
+| `count` | `<m>=<n>` | exactly `<n>` elements have matching text (split at the last `=`) |
+
+Prefix any kind except `count` with `not-` to require the opposite, for example `not-text:required field`.
+
+Every matcher `<m>` follows one rule:
+
+- plain text matches as a case-insensitive substring, with characters such as `(` or `.` taken literally;
+- `/pattern/flags` is a regular expression (flags `i`, `m`, `s`, `u`);
+- `${input.<key>}` inserts the resolved value of a provided `--input`, so you can check that the result echoes what was submitted.
 
 ```bash
---expect-visible "Shipment summary"
-```
-
-Button by accessible name:
-
-```bash
---expect-button "Save quote"
-```
-
-URL:
-
-```bash
---expect-url "https://example.test/result"
-```
-
-Each option can be repeated:
-
-```bash
-npx cordy \
+npx @nac13k/cordy \
   "Complete the flow" \
   --start-url https://example.test \
-  --expect-visible "Application summary" \
-  --expect-visible "Monthly amount" \
-  --expect-button "Continue" \
-  --expect-url "https://example.test/result"
+  --input amount=10000 \
+  --expect 'text:Application summary' \
+  --expect 'text:${input.amount}' \
+  --expect 'value:Monthly payment=/^\$?1,250\.00$/' \
+  --expect 'button-enabled:Continue' \
+  --expect 'not-text:/error|required/i' \
+  --expect 'url:/\/result$/'
 ```
 
-Expectations are checked live when the flow ends. A failed expectation makes Cordy return exit code `1`.
+**Always use single quotes.** In double quotes the shell expands `$` and `${...}` before Cordy sees them. An argument that ends up empty is rejected.
+
+Invalid specs (unknown kind, missing `=`, invalid regex, or a reference to an input that was not provided) fail with exit code `1` before the browser opens.
+
+How expectations are checked:
+
+- They are checked when the flow ends. Each one retries for up to 5 seconds, like Playwright's `expect`, so results that render late still pass.
+- Negated expectations run after all positive ones. When every expectation is negated, the result includes a warning, because the run may have passed before the page reached its final state.
+- The JSON result lists each expectation with `spec` (as written, with `${input.<key>}` unresolved), `kind`, `negated`, `expected`, and `status`. Failures include `actual`, the observed value, which is redacted for password-like fields.
+- A failed expectation makes Cordy return exit code `1`.
+- Expectations are never sent to Jev.
+
+The older flags remain as aliases:
+
+```bash
+--expect-visible "Shipment summary"         # same as --expect 'text:Shipment summary'
+--expect-button "Save quote"                # same as --expect 'button:Save quote'
+--expect-url "https://example.test/result"  # the URL must be exactly equal
+```
 
 ## Generate a test or an automation
 
@@ -377,23 +436,23 @@ Expectations are checked live when the flow ends. A failed expectation makes Cor
 `test` is the default output type:
 
 ```bash
-npx cordy \
-  "Get a shipping quote and show the save quote button as the expected result" \
+npx @nac13k/cordy \
+  "Get a shipping quote and show the Save quote button as the expected result" \
   --start-url https://example.test \
-  --input weight=3500000 \
-  --input postal_code=2500000 \
-  --output ./playwright/simulation.spec.ts \
+  --input peso=2 \
+  --input codigo_postal=44100 \
+  --output ./playwright/shipping-quote.spec.ts \
   --output-kind test
 ```
 
 The output imports `@playwright/test`, creates a `test(...)`, replays successful actions, and adds the `expect(...)` assertions.
 
-### Automation without assertions
+### Automation script
 
-Use `automation` when you only want the interaction sequence:
+Use `automation` when you want a plain script instead of a Playwright test:
 
 ```bash
-npx cordy \
+npx @nac13k/cordy \
   "Complete the flow" \
   --start-url https://example.test \
   --input email=ana@example.com \
@@ -401,7 +460,7 @@ npx cordy \
   --output-kind automation
 ```
 
-The output uses Playwright directly and waits for the visibility of explicit expectations without importing `@playwright/test`.
+The output uses Playwright directly. When there are expectations, it also imports `expect` from `@playwright/test` and throws on the first one that does not hold, so `@playwright/test` must be installed to run it.
 
 `--output` is optional. Without it, Cordy does not write an automation file.
 
@@ -410,7 +469,7 @@ The output uses Playwright directly and waits for the visibility of explicit exp
 Use `--test-name <slug>` to keep several Cordy tests in the same spec file. The slug uses lowercase letters, digits, and single hyphens (at most 64 characters). It also becomes the test title, so `npx playwright test -g <slug>` runs it. Named tests only work with `--output-kind test`.
 
 ```bash
-npx cordy "Get a shipping quote" --start-url https://example.test \
+npx @nac13k/cordy "Get a shipping quote" --start-url https://example.test \
   --output ./playwright/flows.spec.ts --test-name cotizar-envio
 ```
 
@@ -433,7 +492,7 @@ test('cotizar-envio', async ({ page }) => {
 Regenerate one test with a new instruction:
 
 ```bash
-npx cordy "Get a shipping quote with the new form" --start-url https://example.test \
+npx @nac13k/cordy "Get a shipping quote with the new form" --start-url https://example.test \
   --output ./playwright/flows.spec.ts --test-name cotizar-envio --update
 ```
 
@@ -442,10 +501,10 @@ Add `--diff` to run the flow and print the unified diff instead of writing the f
 List the Cordy-managed tests in a file to find their slugs:
 
 ```bash
-npx cordy tests ./playwright/flows.spec.ts
-# SLUG             LINES  STATUS
+npx @nac13k/cordy tests ./playwright/flows.spec.ts
+# SLUG           LINES  STATUS
 # cotizar-envio  4-20   ok
-# login            22-35  ok
+# login          22-35  ok
 ```
 
 `cordy tests` never opens a browser. It supports `--json` and exits with code `1` when it finds damaged markers or the file does not exist.
@@ -455,7 +514,7 @@ npx cordy tests ./playwright/flows.spec.ts
 Plan without interacting with the site:
 
 ```bash
-npx cordy \
+npx @nac13k/cordy \
   "Complete the flow" \
   --start-url https://example.test \
   --input email=ana@example.com \
@@ -473,14 +532,14 @@ The allowed value is between `1` and `100`; the default is `20`.
 
 `--dry-run` never writes the `--output` file. With `--test-name`, it prints a preview instead: the import changes as a diff, and whether the test would be appended or replaced (with its current lines). Insert/update conflicts are still reported. Earlier versions wrote a nearly empty file during a dry run.
 
-`--approve` is retained for CLI compatibility. Cordy's current behavior treats executions as test flows and permits the final impact click to complete the flow, stopping immediately afterward. The action must still pass local validation of the role, locator, and page state.
+High-impact clicks (a `submit` step, or a control whose name looks like a submission such as `Simular`, `Enviar`, or `Confirmar`) run only with `--approve`. Without it, the click is recorded as `blocked` with `requires --approve`, and nothing is clicked. **Breaking change:** earlier versions ignored `--approve` and always executed the final click, so add `--approve` to existing commands that must complete the flow. Prompt runs stop right after the high-impact click; plan runs continue with their remaining steps. The action must still pass local validation of the role, locator, and page state.
 
 ## JSON output and exit codes
 
 For script integration:
 
 ```bash
-npx cordy \
+npx @nac13k/cordy \
   "Complete the flow" \
   --start-url https://example.test \
   --json > result.json
@@ -499,7 +558,9 @@ The result includes fields such as:
   ],
   "expectations": [
     {
+      "spec": "button:Save quote",
       "kind": "button",
+      "negated": false,
       "expected": "Save quote",
       "status": "passed"
     }
@@ -507,17 +568,21 @@ The result includes fields such as:
 }
 ```
 
+With `--plan`, the result also has `planSteps`, and it has `errors` when a plan step was not completed or an input was left unused. `warnings` appears when all expectations are negated or a plan step looks like it contains a value.
+
 Exit codes:
 
-- `0`: actions and expectations completed.
-- `1`: an action failed, an action was blocked, an expectation failed, or a configuration/execution error occurred.
+- `0`: no action failed, no expectation failed, and there are no `errors`.
+- `1`: an action failed, an expectation failed, the result has `errors`, or a configuration/execution error occurred.
+
+A **blocked** action (`needs_review`, or a high-impact click without `--approve`) stops the run but does not change the exit code by itself. In CI, check that every entry in `actions` has `status: "succeeded"`, or add `--expect` checks for the final state so a blocked run fails.
 
 ## Safe diagnostics
 
 Add `--verbose`:
 
 ```bash
-npx cordy \
+npx @nac13k/cordy \
   "Complete the flow" \
   --start-url https://example.test \
   --input email=ana@example.com \
@@ -544,11 +609,73 @@ Diagnostics must never show:
 - passwords, cookies, or tokens;
 - complete HTML or complete page text.
 
+## Plan files
+
+A prompt is parsed with Spanish phrasing rules that only cover a few flows. For any language or app, write the steps yourself in a plan file and pass it with `--plan` (or `--plan -` to read it from stdin):
+
+```yaml
+version: 1
+description: Register a new account   # optional; sent to Jev, so no real values
+steps:
+  - da clic en la sección "Regístrate"
+  - espera a que cargue
+  - llena el formulario
+  - submit: Crear cuenta
+```
+
+(The step texts are Spanish to show that any language works; `Regístrate` and `Crear cuenta` are the app's own labels.)
+
+```bash
+npx @nac13k/cordy --plan ./plan.yaml \
+  --start-url https://example.test \
+  --input name=Ana --input email=ana@example.com \
+  --expect 'text:Welcome' \
+  --approve
+```
+
+A plan replaces the prompt; you cannot pass both.
+
+### Step forms
+
+- **Natural language:** one instruction per step, in any language, up to 300 characters. Before the browser opens, Jev classifies each one as `click`, `fill`, `wait`, or `submit`. A step that describes more than one action (`fill the form and click send`) is rejected; split it.
+- **Explicit:** `{ click: <text> }`, `{ submit: <text> }`, `{ fill: [key, ...] }`, or `{ wait: load }`. Jev does not classify these.
+
+A plan has at most 50 steps. Values never go in the plan: pass them with `--input` and `--file`. Cordy warns when a step text looks like it contains one (an e-mail address or four or more digits), because step texts are sent to Jev.
+
+### How steps run
+
+- Steps run strictly in order, and Cordy decides locally when each one is complete.
+- **click / submit:** the control Jev picks must be named in the step. Its visible name has to appear in the step text as whole words, ignoring accents, case, and punctuation. Put the name in quotes (`clic en "Enviar"`) to require an exact match. Explicit targets use the same matching as prompt targets.
+- **fill:** a natural-language fill consumes the pending inputs that have a field on the current screen, so a wizard can have one fill step per screen. The step ends when Jev finds no more matching fields. An explicit `fill` ends when its listed keys are used. If any provided input is still unused when the plan ends, the run fails.
+- **wait:** always waits for the page load event. Durations such as "3 seconds" are ignored, and generated code never sleeps for a fixed time.
+- **submit:** always high impact. A click is also high impact when the control's name looks like a submission (`submit`, `enviar`, `confirmar`, …), whatever the step says. High-impact clicks need `--approve`.
+- Unlike prompt runs, a plan run continues after a high-impact click until its last step.
+
+The JSON result lists `planSteps`: each step's text, kind, whether Jev classified it, whether it was completed, and the target or input keys it used. If the step limit is reached first, or inputs are left unused, the result has `errors` and the exit code is `1`.
+
+### Plan commands
+
+```bash
+npx @nac13k/cordy plan init [plan.yaml]   # write a commented example (never overwrites)
+npx @nac13k/cordy plan schema             # print the JSON Schema, e.g. for LLM structured output
+npx @nac13k/cordy plan check plan.yaml    # validate offline, without Jev or a browser
+```
+
+Validation errors name the location, for example `steps[2].fill: expected a list of input keys`, so an agent can fix the plan from the message.
+
 ## Ordered execution plan
 
 Cordy creates an in-memory plan before running the browser. The plan extracts the explicit order from the prompt locally—for example, navigate to a section, fill inputs, click `Simulate`, and validate the result—and Jev only resolves the concrete candidate on the current screen for the current step.
 
-The runtime does not allow steps to be skipped. If the prompt requests `shipping quote` but the page only exposes `Track a package`, Cordy blocks the action because of the mismatch instead of navigating to a different section. The plan appears in `--json` output.
+The runtime does not allow steps to be skipped. If the prompt requests the `shipping quote` section but the page only exposes `Track a package`, Cordy blocks the action because of the mismatch instead of navigating to a different section. The plan appears in `--json` output.
+
+### Prompt planning is generic
+
+The prompt planner only derives generic steps: navigation to a named section, filling the provided inputs, and the final `simular` click. Earlier versions also contained rules for one specific application. If you relied on them, migrate like this:
+
+- **Extra entry click:** a prompt that asked to simulate a credit used to add a click on a fixed button label before filling the form. Name that click in a plan file instead (`- clic en "<button text>"`).
+- **Inferred result text:** one fixed result heading used to become a visible-text expectation. Declare result texts with `--expect 'text:<text>'`. Only the `botón …` phrasing is still inferred.
+- **Fill proposed on a button:** Cordy used to turn it into a navigation click on an entry button. It now returns `needs_review`, like any other action that does not fit the control. Use a plan step that names the button.
 
 ## Supported actions and limits
 
@@ -585,7 +712,7 @@ npx playwright install --with-deps chromium
 Configure `JEV_API_KEY` through the CI provider's secret store, not through a commit or a variable written to logs. Run headless and preserve JSON as an artifact:
 
 ```bash
-npx cordy \
+npx @nac13k/cordy \
   --prompt-file ./tasks/simulation.txt \
   --input ./tasks/simulation.inputs.json \
   --start-url https://staging.example.test \
@@ -638,6 +765,10 @@ npm run build
 npm pack --dry-run
 npm publish
 ```
+
+npm never lets a version number be reused, even after it was unpublished, and after a whole package is unpublished no new version can be published for 24 hours. Always publish a new version number.
+
+When the repository has the "Publish to npm" workflow (`.github/workflows/publish.yml`), pushing a `v*` tag runs it: it checks that the tag matches `package.json`, runs the checks, and publishes with the npm token configured in the repository secrets.
 
 Before publishing a new version:
 

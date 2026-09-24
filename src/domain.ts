@@ -59,8 +59,20 @@ export const PlannedAction = z.discriminatedUnion('kind', [
     inputKey: z.string(),
     reason: z.string(),
   }),
-  z.object({ kind: z.literal('wait'), reason: z.string() }),
+  z.object({
+    kind: z.literal('upload'),
+    locator: LocatorSpec,
+    inputKey: z.string(),
+    reason: z.string(),
+  }),
+  z.object({
+    kind: z.literal('wait'),
+    reason: z.string(),
+    state: z.enum(['load', 'domcontentloaded']).optional(),
+  }),
   z.object({ kind: z.literal('needs_review'), reason: z.string() }),
+  /** Local signal: in a natural-language fill step, no visible field matches a pending input. */
+  z.object({ kind: z.literal('step_complete'), reason: z.string() }),
 ]);
 export type PlannedAction = z.infer<typeof PlannedAction>;
 
@@ -71,6 +83,8 @@ export type InteractiveElement = {
   label?: string;
   placeholder?: string;
   inputType?: string;
+  accept?: string;
+  multiple?: boolean;
   valueState: 'empty' | 'filled' | 'secret_or_redacted';
   visible: boolean;
   enabled: boolean;
@@ -86,6 +100,7 @@ export type BrowserState = {
   recentActions?: Array<{ kind: string; locator?: string; inputKey?: string; status: string }>;
   workflow?: {
     kind: string;
+    instruction?: string;
     target?: string;
     inputKeys?: string[];
     allowedActions: string[];
