@@ -20,18 +20,18 @@ Jev is not a code executor. It never receives API keys, cookies, authorization h
 For a test project:
 
 ```bash
-npm install --save-dev cordy
+npm install --save-dev @nac13k/cordy
 npx playwright install chromium
 ```
 
 For a one-off try:
 
 ```bash
-npx cordy@0.1.0 --help
+npx @nac13k/cordy@0.1.0 --help
 npx playwright install chromium
 ```
 
-Cordy requires Node.js `>=20`. The package publishes the `cordy` binary and the ESM API in `dist`.
+Cordy requires Node.js `>=20`. The package `@nac13k/cordy` publishes the `cordy` binary and the ESM API in `dist`. After a local installation, `npx cordy` runs that binary, which is what the examples below use.
 
 ## 3. Environment and configuration
 

@@ -1,8 +1,16 @@
 {
-  "name": "cordy",
+  "name": "@nac13k/cordy",
   "version": "0.1.0",
   "description": "Natural-language Playwright automation CLI coordinated by Jev",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nac13k/cordy.git"
+  },
+  "homepage": "https://github.com/nac13k/cordy#readme",
+  "bugs": {
+    "url": "https://github.com/nac13k/cordy/issues"
+  },
   "type": "module",
   "bin": {
     "cordy": "dist/cli.js"
@@ -23,6 +31,10 @@
   ],
   "engines": {
     "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   },
   "scripts": {
     "build": "tsup",

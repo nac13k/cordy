@@ -58,16 +58,16 @@ node --version
 
 ### One-off execution with `npx`
 
-You do not need to install Cordy globally:
+Cordy is published on npm as `@nac13k/cordy`. You do not need to install it globally:
 
 ```bash
-npx cordy --help
+npx @nac13k/cordy --help
 ```
 
 To prevent `npx` from unexpectedly selecting a different version, pin the version:
 
 ```bash
-npx cordy@0.1.0 --help
+npx @nac13k/cordy@0.1.0 --help
 ```
 
 Install Playwright browsers once per machine:
@@ -81,11 +81,11 @@ npx playwright install chromium
 Recommended for reproducible test suites:
 
 ```bash
-npm install --save-dev cordy
+npm install --save-dev @nac13k/cordy
 npx playwright install chromium
 ```
 
-Run the local binary:
+The installed binary is named `cordy`, so inside a project that depends on it `npx cordy` runs the local copy. The `npx cordy ...` examples in the rest of this guide assume a local installation:
 
 ```bash
 npx cordy "Complete the form" --start-url https://example.test
@@ -94,7 +94,7 @@ npx cordy "Complete the form" --start-url https://example.test
 ### Global installation
 
 ```bash
-npm install --global cordy
+npm install --global @nac13k/cordy
 npx playwright install chromium
 cordy --help
 ```
@@ -626,33 +626,29 @@ npm pack --dry-run
 
 ## Publishing the package
 
-Publishing is an external operation and must be performed with an authorized npm account:
+Releases are published to npm by the `Publish to npm` GitHub Actions workflow (`.github/workflows/publish.yml`) whenever a `v*` tag is pushed:
 
 ```bash
-npm login
-npm whoami
-npm run format:check
-npm run typecheck
-npm test
-npm run build
-npm pack --dry-run
-npm publish
+npm version patch   # or minor / major; commits the bump and creates the v* tag
+git push --follow-tags
 ```
 
-Before publishing a new version:
+The workflow checks that the tag matches the `version` in `package.json`, runs `format:check`, `typecheck`, and `test`, and then runs `npm publish` with provenance. Pre-release versions such as `0.2.0-beta.1` are published under the `next` dist-tag, so they do not replace `latest`.
 
-1. update the version with `npm version`;
-2. review `npm pack --dry-run`;
-3. confirm that `.env`, credentials, private fixtures, and temporary files are not included;
-4. verify that `dist`, `README.md`, and `LICENSE` are included;
-5. publish from an environment where the npm credential is configured securely.
+One-time setup: create an npm granular access token with read and write access to `@nac13k/cordy` (or to all packages for the first publish) and store it as the `NPM_TOKEN` repository secret in GitHub.
+
+Before tagging a new version:
+
+1. review `npm pack --dry-run`;
+2. confirm that `.env`, credentials, private fixtures, and temporary files are not included;
+3. verify that `dist`, `README.md`, and `LICENSE` are included.
 
 ## Programmatic API
 
 The package also exports the main TypeScript API:
 
 ```ts
-import { generateTypeScript, runCordy } from 'cordy';
+import { generateTypeScript, runCordy } from '@nac13k/cordy';
 ```
 
 The `cordy` command is the recommended interface for end users. The programmatic API may change while the package remains in version `0.x`.

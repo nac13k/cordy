@@ -16,6 +16,9 @@ import {
   type RequiredImport,
 } from './managed-output.js';
 
+/** npm package name that generated code imports runtime helpers from. */
+export const PACKAGE_NAME = '@nac13k/cordy';
+
 export type GeneratedInputSource =
   { kind: 'inline'; values: Record<string, string> } | { kind: 'file'; path: string };
 
@@ -46,7 +49,7 @@ export function requiredImports(inputSource: GeneratedInputSource): RequiredImpo
   return [
     { module: '@playwright/test', names: ['expect', 'test'] },
     ...(inputSource.kind === 'file' ? [{ module: 'node:fs', names: ['readFileSync'] }] : []),
-    { module: 'cordy', names: ['resolveInputRecord'] },
+    { module: PACKAGE_NAME, names: ['resolveInputRecord'] },
   ];
 }
 function inputDeclaration(inputSource: GeneratedInputSource) {
@@ -151,7 +154,7 @@ export function generateTypeScript(
   const lines = [
     "import { chromium } from 'playwright';",
     ...(inputSource.kind === 'file' ? ["import { readFileSync } from 'node:fs';"] : []),
-    "import { resolveInputRecord } from 'cordy';",
+    `import { resolveInputRecord } from '${PACKAGE_NAME}';`,
     '',
     '(async () => {',
     inputDeclaration(inputSource),
