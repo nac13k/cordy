@@ -46,7 +46,7 @@ export function requiredImports(inputSource: GeneratedInputSource): RequiredImpo
   return [
     { module: '@playwright/test', names: ['expect', 'test'] },
     ...(inputSource.kind === 'file' ? [{ module: 'node:fs', names: ['readFileSync'] }] : []),
-    { module: 'cordy', names: ['resolveInputRecord'] },
+    { module: '@nac13k/cordy', names: ['resolveInputRecord'] },
   ];
 }
 function inputDeclaration(inputSource: GeneratedInputSource) {
@@ -151,7 +151,7 @@ export function generateTypeScript(
   const lines = [
     "import { chromium } from 'playwright';",
     ...(inputSource.kind === 'file' ? ["import { readFileSync } from 'node:fs';"] : []),
-    "import { resolveInputRecord } from 'cordy';",
+    "import { resolveInputRecord } from '@nac13k/cordy';",
     '',
     '(async () => {',
     inputDeclaration(inputSource),

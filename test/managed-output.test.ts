@@ -10,10 +10,10 @@ import {
 
 const required: RequiredImport[] = [
   { module: '@playwright/test', names: ['expect', 'test'] },
-  { module: 'cordy', names: ['resolveInputRecord'] },
+  { module: '@nac13k/cordy', names: ['resolveInputRecord'] },
 ];
 const header =
-  "import { expect, test } from '@playwright/test';\nimport { resolveInputRecord } from 'cordy';";
+  "import { expect, test } from '@playwright/test';\nimport { resolveInputRecord } from '@nac13k/cordy';";
 const block = (slug: string, body = '  // steps') =>
   `// cordy:begin ${slug}\ntest('${slug}', async ({ page }) => {\n${body}\n});\n// cordy:end ${slug}`;
 const twoBlocks = `${header}\n\n${block('cotizar-envio')}\n\n${block('login')}\n`;
@@ -114,7 +114,7 @@ describe('mergeImports', () => {
       'import { test } from "@playwright/test";\nimport path from \'node:path\';\n\ncode();';
     expect(mergeImports(source, required)).toBe(
       'import { test, expect } from "@playwright/test";\nimport path from \'node:path\';\n' +
-        "import { resolveInputRecord } from 'cordy';\n\ncode();",
+        "import { resolveInputRecord } from '@nac13k/cordy';\n\ncode();",
     );
   });
   it('writes imports into an empty file', () => {
