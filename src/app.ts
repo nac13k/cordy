@@ -5,6 +5,7 @@ import { createConfigFile, findConfig, loadConfig, type CordyConfig } from './co
 import { parseManagedFile } from './managed-output.js';
 import { loadPlanFile, PLAN_TEMPLATE, planJsonSchema, planToYaml, readStdin } from './plan-file.js';
 import { planFromPrompt } from './prompt-steps.js';
+import { skillCommand } from './skill.js';
 
 export const help = `cordy - natural-language Playwright automation with Jev
 
@@ -14,6 +15,7 @@ Usage:
   npx @nac13k/cordy tests ./flows.spec.ts [--json]
   npx @nac13k/cordy --plan ./plan.yaml --start-url https://example.test --input email=ana@example.com
   npx @nac13k/cordy plan init [plan.yaml] | plan schema | plan check <file|-> | plan from-prompt <text|->
+  npx @nac13k/cordy skill install --agent claude | skill print | skill prompt [--agent codex]
 
 The prompt is a list of steps separated by line breaks, list markers (-, *, 1., 1)),
 inline numbering (1. a 2. b), or commas and semicolons outside double quotes.
@@ -48,7 +50,13 @@ Options:
 
 Commands:
   init [--format toml|yaml]       Create a configuration file
-  tests <file> [--json]           List Cordy-managed tests in a file`;
+  tests <file> [--json]           List Cordy-managed tests in a file
+  skill install --agent <names> [--global] [--force]
+                                  Install the Cordy agent skill (claude, codex, hermes,
+                                  openclaw, pi, all) in the project or, with --global, home
+  skill print                     Print the agent skill (SKILL.md)
+  skill prompt [--agent <name>] [--global]
+                                  Print a prompt that asks an agent to install the skill`;
 
 export async function listManagedTests(args: string[]) {
   const json = args.includes('--json');
@@ -137,6 +145,7 @@ export async function main(args = process.argv.slice(2)) {
   }
   if (args[0] === 'tests') return listManagedTests(args.slice(1));
   if (args[0] === 'plan') return planCommand(args.slice(1));
+  if (args[0] === 'skill') return skillCommand(args.slice(1));
   if (args.includes('--help') || args.includes('-h')) {
     console.log(help);
     return 0;

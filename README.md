@@ -717,6 +717,36 @@ Cordy blocks, among other cases:
 - invalid starting URLs;
 - proposals incompatible with the element's accessible role.
 
+## Use Cordy from an agent
+
+Cordy ships an agent skill (`SKILL.md`) that teaches coding agents how to run it safely: prompts as step lists, values through `--input`, `--dry-run` and `--json` first, and `--approve` only with the user's consent. Install it for one or more agents:
+
+```bash
+npx @nac13k/cordy skill install --agent claude
+npx @nac13k/cordy skill install --agent codex,pi --global
+npx @nac13k/cordy skill install --agent all
+```
+
+| Agent      | Project (default) | `--global`            |
+| ---------- | ----------------- | --------------------- |
+| `claude`   | `.claude/skills/` | `~/.claude/skills/`   |
+| `codex`    | `.agents/skills/` | `~/.agents/skills/`   |
+| `hermes`   | `.hermes/skills/` | `~/.hermes/skills/`   |
+| `openclaw` | `skills/`         | `~/.openclaw/skills/` |
+| `pi`       | `.pi/skills/`     | `~/.pi/agent/skills/` |
+
+Each agent gets `cordy/SKILL.md` under its directory. An existing file is left unchanged (and the command exits with code `1`) unless you add `--force`, so rerun with `--force` after upgrading Cordy to refresh the skill.
+
+For other agents, or to let the agent write the file itself:
+
+```bash
+npx @nac13k/cordy skill print > SKILL.md          # the raw skill
+npx @nac13k/cordy skill prompt                    # a prompt to paste into any agent
+npx @nac13k/cordy skill prompt --agent codex      # the same, naming Codex's path
+```
+
+The `skill` commands never contact Jev, open a browser, or need `JEV_API_KEY`.
+
 ## CI integration
 
 Example of a reproducible installation:
