@@ -58,7 +58,7 @@ node --version
 
 ### One-off execution with `npx`
 
-You do not need to install Cordy globally:
+Cordy is published on npm as `@nac13k/cordy`. You do not need to install it globally:
 
 ```bash
 npx @nac13k/cordy --help
@@ -753,30 +753,24 @@ npm pack --dry-run
 
 ## Publishing the package
 
-Publishing is an external operation and must be performed with an authorized npm account:
+Releases are published to npm by the `Publish to npm` GitHub Actions workflow (`.github/workflows/publish.yml`) whenever a `v*` tag is pushed:
 
 ```bash
-npm login
-npm whoami
-npm run format:check
-npm run typecheck
-npm test
-npm run build
-npm pack --dry-run
-npm publish
+npm version patch   # or minor / major; commits the bump and creates the v* tag
+git push --follow-tags
 ```
 
-npm never lets a version number be reused, even after it was unpublished, and after a whole package is unpublished no new version can be published for 24 hours. Always publish a new version number.
+The workflow checks that the tag matches the `version` in `package.json`, runs `format:check`, `typecheck`, and `test`, and then runs `npm publish`. Pre-release versions such as `0.2.0-beta.1` are published under the `next` dist-tag, so they do not replace `latest`.
 
-When the repository has the "Publish to npm" workflow (`.github/workflows/publish.yml`), pushing a `v*` tag runs it: it checks that the tag matches `package.json`, runs the checks, and publishes with the npm token configured in the repository secrets.
+npm never lets a version number be reused, even after it was unpublished, and after a whole package is unpublished no new version can be published for 24 hours. Always tag a new version number.
 
-Before publishing a new version:
+One-time setup: create an npm granular access token with read and write access to `@nac13k/cordy` (or to all packages for the first publish) and store it as the `NPM_TOKEN` repository secret in GitHub.
 
-1. update the version with `npm version`;
-2. review `npm pack --dry-run`;
-3. confirm that `.env`, credentials, private fixtures, and temporary files are not included;
-4. verify that `dist`, `README.md`, and `LICENSE` are included;
-5. publish from an environment where the npm credential is configured securely.
+Before tagging a new version:
+
+1. review `npm pack --dry-run`;
+2. confirm that `.env`, credentials, private fixtures, and temporary files are not included;
+3. verify that `dist`, `README.md`, and `LICENSE` are included.
 
 ## Programmatic API
 

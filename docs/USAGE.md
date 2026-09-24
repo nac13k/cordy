@@ -31,7 +31,7 @@ npx @nac13k/cordy@0.2.0 --help
 npx playwright install chromium
 ```
 
-Cordy requires Node.js `>=20`. The package publishes the `cordy` binary and the ESM API in `dist`.
+Cordy requires Node.js `>=20`. The package `@nac13k/cordy` publishes the `cordy` binary and the ESM API in `dist`. The examples below use `npx @nac13k/cordy`, which runs the locally installed binary when there is one. Avoid `npx cordy`: the unscoped `cordy` package on npm is an unrelated project.
 
 ## 3. Environment and configuration
 
