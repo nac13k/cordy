@@ -16,18 +16,19 @@
 
 ## 4. Verification
 
-- [ ] 4.1 Check every tracked and untracked (not ignored) file against a denylist of the old labels, their translations, and the owner's personal e-mail, kept outside the repository. Report only file names and counts, and verify zero matches
-- [ ] 4.2 Run `npm run format:check`, `npm run typecheck`, `npm test`, and `npm run build`, all passing
+- [x] 4.1 Check every tracked and untracked (not ignored) file against a denylist of the old labels, their translations, and the owner's personal e-mail, kept outside the repository. Report only file names and counts, and verify zero matches
+- [x] 4.2 Run `npm run format:check`, `npm run typecheck`, `npm test`, and `npm run build`, all passing
 
 ## 5. History cleanup with git filter-repo
 
 - [x] 5.0 Set `user.email` for this repository to the owner's personal address (the one on the GitHub account), and verify with `git var GIT_AUTHOR_IDENT` that the identity uses it and contains no host name or IP. Do not write the address into any repository file
-- [ ] 5.1 Commit the neutralized working tree (with the pending feature work) on a local branch, and verify the working tree is clean except for gitignored files and the untracked agent folders
-- [ ] 5.2 Write the replacement file and the mailmap outside the repository. The replacement file has literal and `regex:` rules for the old labels, their accent and case variants, and their English translations, mapped to the neutral flow. The mailmap maps the IP-based identity to the personal address from 5.0, keeping names; the two merge commits already use that address and stay as they are. Verify neither file is inside the repo or staged
-- [ ] 5.3 Create a backup bundle of all refs outside the repository, and verify it with `git bundle verify`
-- [ ] 5.4 Mirror-clone the local repository into the scratchpad and run `git filter-repo --replace-text <file> --replace-message <file> --mailmap <mailmap>` there. Verify that the command succeeds and that the working copy is untouched
-- [ ] 5.5 Verify the mirror: zero denylist matches across all blobs of all refs and all commit messages; every author, committer, and tagger e-mail is the owner's personal address or a GitHub/Anthropic service address, none contains `192.168.`, and author names are unchanged; the personal address appears in no blob and no commit message; the tip tree of the neutralized branch is unchanged; branch and tag counts are unchanged; `npm ci && npm test` pass on a checkout of the rewritten main branch; review `git diff --stat` between the original and rewritten refs
-- [ ] 5.6 Stop and get explicit confirmation from the owner before publishing, showing the verification results and the list of refs to be force-pushed
-- [ ] 5.7 With the "Publish to npm" workflow disabled and force pushes allowed, force-push the rewritten branches and tags (`refs/heads/*`, `refs/tags/*`, never `--mirror`), then restore both settings. Verify with `git ls-remote` that the remote refs match the mirror
-- [ ] 5.8 Replace the working copy with a fresh clone from GitHub, restore `.env` and the untracked agent folders, and run the full checks. Verify the denylist scan of the new clone returns zero matches, then delete the backup bundle
-- [ ] 5.9 Draft the GitHub Support request to purge cached views and PR references (#1, #2) with the old commit hashes, and hand it to the owner
+- [x] 5.1 Commit the neutralized working tree (with the pending feature work) on a local branch, and verify the working tree is clean except for gitignored files and the untracked agent folders
+- [x] 5.2 Write the replacement file and the mailmap outside the repository. The replacement file has literal and `regex:` rules for the old labels, their accent and case variants, and their English translations, mapped to the neutral flow. The mailmap maps the IP-based identity to the personal address from 5.0, keeping names; the two merge commits already use that address and stay as they are. Verify neither file is inside the repo or staged
+- [x] 5.3 Create a backup bundle of all refs outside the repository, and verify it with `git bundle verify`
+- [x] 5.4 Mirror-clone the local repository into the scratchpad and run `git filter-repo --replace-text <file> --replace-message <file> --mailmap <mailmap>` there. Verify that the command succeeds and that the working copy is untouched
+- [x] 5.5 Verify the mirror: zero denylist matches across all blobs of all refs and all commit messages; every author, committer, and tagger e-mail is the owner's personal address or a GitHub/Anthropic service address, none contains `192.168.`, and author names are unchanged; the personal address appears in no blob and no commit message; the tip tree of the neutralized branch is unchanged; branch and tag counts are unchanged; `npm ci && npm test` pass on a checkout of the rewritten main branch; review `git diff --stat` between the original and rewritten refs
+- [x] 5.6 Stop and get explicit confirmation from the owner before publishing, showing the verification results and the list of refs to be force-pushed
+- [x] 5.7 With the "Publish to npm" workflow disabled and force pushes allowed, force-push the rewritten branches and tags (`refs/heads/*`, `refs/tags/*`, never `--mirror`), then restore both settings. Verify with `git ls-remote` that the remote refs match the mirror
+- [x] 5.8 Replace the working copy with a fresh clone from GitHub, restore `.env` and the untracked agent folders, and run the full checks. Verify the denylist scan of the new clone returns zero matches, keeping the previous working copy as a local backup
+- [x] 5.9 Draft the GitHub Support request to purge cached views and PR references (#1, #2) with the old commit hashes, and hand it to the owner
+- [ ] 5.10 After the owner deletes and recreates the GitHub repository (their decision instead of sending the Support request drafted in 5.9), delete the backup bundle and the previous working copy, which both still contain the original history
