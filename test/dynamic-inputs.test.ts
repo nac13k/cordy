@@ -28,4 +28,14 @@ describe('dynamic input templates', () => {
       email: 'correo+2000@example.com',
     });
   });
+
+  it('skips typed file entries and keeps value inputs', () => {
+    expect(
+      resolveInputRecord({
+        name: 'Ana',
+        age: 34,
+        proof: { type: 'file', path: './fixtures/proof.png' },
+      }),
+    ).toEqual({ name: 'Ana', age: '34' });
+  });
 });

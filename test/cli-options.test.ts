@@ -41,6 +41,83 @@ describe('cordy CLI options', () => {
       inputFile: './inputs.json',
     });
   });
+  it('parses key=value inputs even when the value looks like a path', () => {
+    const parsed = parseCliArgs([
+      'task',
+      '--input',
+      'report=./data/report.json',
+      '--input',
+      'root=/abs/path',
+      '--input',
+      'query=a=b',
+    ]);
+    expect(parsed.inputs).toEqual({
+      report: './data/report.json',
+      root: '/abs/path',
+      query: 'a=b',
+    });
+    expect(parsed.inputFile).toBeUndefined();
+  });
+  it('treats arguments without a valid key prefix as the inputs file', () => {
+    expect(parseCliArgs(['task', '--input', '/abs/inputs.json']).inputFile).toBe(
+      '/abs/inputs.json',
+    );
+    expect(parseCliArgs(['task', '--input', './a=b.json']).inputFile).toBe('./a=b.json');
+  });
+  it('parses repeated file inputs with one or several paths', () => {
+    expect(
+      parseCliArgs([
+        'task',
+        '--file',
+        'id_document=./fixtures/id.pdf',
+        '--file',
+        'attachments=./a.pdf,./b.pdf',
+      ]).files,
+    ).toEqual({ id_document: ['./fixtures/id.pdf'], attachments: ['./a.pdf', './b.pdf'] });
+  });
+  it('rejects file inputs without a key or with empty paths', () => {
+    expect(() => parseCliArgs(['task', '--file', './a.pdf'])).toThrow(/key=path/);
+    expect(() => parseCliArgs(['task', '--file', 'doc='])).toThrow(/non-empty path/);
+    expect(() => parseCliArgs(['task', '--file', 'doc=./a.pdf,'])).toThrow(/non-empty path/);
+  });
+  it('parses repeated --expect specs', () => {
+    expect(
+      parseCliArgs([
+        'task',
+        '--input',
+        'amount=10',
+        '--expect',
+        'text:${input.amount}',
+        '--expect',
+        'not-text:/error/i',
+      ]).expect,
+    ).toEqual(['text:${input.amount}', 'not-text:/error/i']);
+  });
+  it('rejects an unknown expectation kind', () => {
+    expect(() => parseCliArgs(['task', '--expect', 'visible:Summary'])).toThrow(
+      /invalid --expect "visible:Summary": unknown kind/,
+    );
+  });
+  it('rejects an unknown input reference when all inputs are inline', () => {
+    expect(() =>
+      parseCliArgs(['task', '--input', 'a=1', '--expect', 'text:${input.missing}']),
+    ).toThrow(/references input "missing"/);
+    expect(
+      parseCliArgs(['task', '--input', './inputs.json', '--expect', 'text:${input.fromFile}'])
+        .expect,
+    ).toEqual(['text:${input.fromFile}']);
+  });
+  it('accepts --plan with a path or - for stdin', () => {
+    expect(parseCliArgs(['--plan', 'plan.yaml']).plan).toBe('plan.yaml');
+    expect(parseCliArgs(['--plan', '-', '--headed'])).toMatchObject({ plan: '-', headed: true });
+    expect(() => parseCliArgs(['--plan', '--headed'])).toThrow(/--plan requires/);
+  });
+  it('rejects --plan together with a prompt', () => {
+    expect(() => parseCliArgs(['task', '--plan', 'plan.yaml'])).toThrow(/mutually exclusive/);
+    expect(() => parseCliArgs(['--prompt-file', 't.md', '--plan', 'plan.yaml'])).toThrow(
+      /mutually exclusive/,
+    );
+  });
   it('rejects both positional task and prompt file', () => {
     expect(() => parseCliArgs(['task', '--prompt-file', 'task.md'])).toThrow(/mutually exclusive/);
   });

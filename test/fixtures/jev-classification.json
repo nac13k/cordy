@@ -1,0 +1,24 @@
+{
+  "request": {
+    "steps": [
+      "da clic en la sección \"Regístrate\"",
+      "espera a que cargue",
+      "llena el formulario",
+      "clic en enviar",
+      "llena el formulario y da clic en enviar",
+      "Go to the Loans section"
+    ]
+  },
+  "response": {
+    "model": "jev-1.13.0",
+    "usage": { "input_tokens": 1449, "output_tokens": 309 },
+    "answers": {
+      "step_0": { "type": "choice", "choice": "click", "confidence": 1 },
+      "step_1": { "type": "choice", "choice": "wait", "confidence": 1 },
+      "step_2": { "type": "choice", "choice": "fill", "confidence": 1 },
+      "step_3": { "type": "choice", "choice": "submit", "confidence": 0.8 },
+      "step_4": { "type": "choice", "choice": "compound", "confidence": 1 },
+      "step_5": { "type": "choice", "choice": "click", "confidence": 1 }
+    }
+  }
+}

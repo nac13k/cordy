@@ -1,10 +1,6 @@
 import { z } from 'zod';
+import { collectExpectations, Expectation } from './expectation-spec.js';
 import { inferExpectations } from './expectations.js';
-
-const Expectation = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('visible_text'), value: z.string().min(1) }),
-  z.object({ kind: z.literal('button'), name: z.string().min(1) }),
-]);
 
 const StepBase = z.object({ id: z.string(), status: z.literal('pending') });
 export const WorkflowStep = z.discriminatedUnion('kind', [
@@ -37,7 +33,15 @@ function clean(value: string) {
     .replace(/[.,;:]+$/, '');
 }
 
-export function createWorkflowPlan(task: string, inputs: Record<string, string>): WorkflowPlan {
+/**
+ * Builds the plan from the prompt. `expectations` are the already collected CLI, alias, and
+ * inferred expectations; when omitted, only prompt-inferred expectations are used.
+ */
+export function createWorkflowPlan(
+  task: string,
+  inputs: Record<string, string>,
+  expectations?: Expectation[],
+): WorkflowPlan {
   const normalized = task.replace(/\s+/g, ' ').trim();
   const steps: WorkflowStep[] = [];
   const section = normalized.match(
@@ -50,17 +54,6 @@ export function createWorkflowPlan(task: string, inputs: Record<string, string>)
       target: clean(section),
       status: 'pending',
     });
-    if (
-      !/cotiza\s+tu\s+env[ií]o/i.test(section) &&
-      /simula(?:r)?\s+un\s+cr[eé]dito/i.test(normalized)
-    )
-      steps.push({
-        id: `step_${steps.length + 1}`,
-        kind: 'click',
-        target: 'cotiza tu envio',
-        finalImpact: false,
-        status: 'pending',
-      });
   }
   const inputKeys = Object.keys(inputs);
   if (inputKeys.length > 0)
@@ -79,21 +72,32 @@ export function createWorkflowPlan(task: string, inputs: Record<string, string>)
       finalImpact: true,
       status: 'pending',
     });
-  const inferred = inferExpectations(normalized);
-  const expectations: Array<z.infer<typeof Expectation>> = [
-    ...inferred.visible.map((value) => ({ kind: 'visible_text' as const, value })),
-    ...inferred.buttons.map((name) => ({ kind: 'button' as const, name })),
-  ];
-  if (expectations.length > 0) {
+  const assertions =
+    expectations ??
+    collectExpectations(
+      {
+        expect: [],
+        expectVisible: [],
+        expectButtons: [],
+        expectUrl: [],
+        inferred: inferExpectations(normalized),
+      },
+      [],
+    );
+  if (assertions.length > 0) {
     const previous = steps.at(-1)?.id ?? 'prompt';
     steps.push({
       id: `step_${steps.length + 1}`,
       kind: 'assert',
       afterStep: previous,
-      expectations,
+      expectations: assertions,
       status: 'pending',
     });
   }
+  if (!steps.some((step) => step.kind !== 'assert'))
+    throw new Error(
+      'no plan could be derived from the prompt; describe the steps in a plan file and pass it with --plan (see cordy plan init)',
+    );
   const plan = WorkflowPlan.parse({ version: 1, source: task, steps });
   const fillStep = plan.steps.find((step) => step.kind === 'fill_inputs');
   if (

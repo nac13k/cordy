@@ -90,38 +90,66 @@ npx cordy \
 
 Templates are resolved once per run, in memory. `eval`, `process.env`, imports, arbitrary calls, and functions outside the allowlist are rejected. Generated outputs keep the input source: `key=value` values go into `const input`, and their templates are evaluated at the start of every run, while an input file is read with `readFileSync` when the test runs. Sensitive keys are never embedded and stay as environment variables.
 
+## File uploads
+
+Use `--file key=path[,path...]`, or a typed entry `{ "type": "file", "path": "..." }` (or `"paths": [...]`) in the inputs JSON file:
+
+```bash
+npx cordy \
+  "Completa el registro y sube la identificación" \
+  --start-url https://example.test \
+  --file id_document=./fixtures/id.pdf
+```
+
+Paths are relative to the working directory (the project root), and each file must exist before the run starts. Jev only learns that the key is a file input. Cordy uploads into `<input type="file">` controls, including hidden ones, and blocks the upload when the control's `accept` list or `multiple` setting does not fit the files. Generated code keeps the same relative paths in a `files` constant.
+
 ## 4. Full flow with inferred expectations
 
 ```bash
 npx cordy \
-  "simula un credito entrando a la seccion cotiza tu envio y llenando el formulario y al simular debe de presentar como resultado esperado una pantalla con los resumen del envio y un boton de guardar cotización" \
+  "entra a la sección cotizador de envíos y simula un envío llenando el formulario y al simular debe de presentar como resultado esperado el resumen del envío y un botón de guardar cotización" \
   --start-url https://example.test \
-  --input peso=3500000 \
-  --input monto=2500000 \
+  --input peso=2 \
+  --input codigo_postal=44100 \
+  --expect 'text:Resumen del envío' \
   --output ./playwright/cotizar-envio.spec.ts \
   --output-kind test \
+  --approve \
   --headed \
   --verbose
 ```
 
-The phrase `resultado esperado` ("expected result") and the explicit conditions let Cordy infer:
-
-- visible text or a region related to `resumen del envio` ("shipment summary");
-- a visible element with role `button` and a name similar to `guardar cotización` ("save quote").
+(The prompt is Spanish because that is the phrasing Cordy's planner parses.) Cordy plans navigation to the `cotizador de envíos` section, filling `peso` and `codigo_postal`, and the final `simular` click. From `botón de guardar cotización` it infers a visible element with role `button` and a name similar to `guardar cotización` ("save quote"). Visible texts are not inferred, so the result text is declared with `--expect`.
 
 Expectations are checked after the last click of the flow. The generated test keeps the assertions.
 
-## 5. Explicit expectations
+## Plan files
 
-Use explicit flags if you want to keep the specification separate from the prompt:
+When the prompt is not in Spanish, or the flow is not a simple form, describe the steps in a plan file:
 
 ```bash
---expect-visible "Resumen de la solicitud"
---expect-button "Guardar cotización"
---expect-url "https://example.test/resultado"
+npx cordy plan init plan.yaml      # commented example
+npx cordy plan check plan.yaml     # offline validation
+npx cordy --plan plan.yaml --start-url https://example.test --input email=ana@example.com --approve
 ```
 
-Each flag is repeatable. Explicit expectations are added to the inferred ones; they don't replace local validation.
+Each step is one natural-language instruction in any language, which Jev classifies as `click`, `fill`, `wait`, or `submit` before the browser opens. It can also be an explicit form: `{ click: X }`, `{ submit: X }`, `{ fill: [keys] }`, or `{ wait: load }`. Steps that combine two actions are rejected. Clicked controls must be named in the step text, and quoted names must match exactly. A natural-language `fill` consumes the inputs visible on the current screen, and every input must be used by the end of the plan. `wait` always waits for the page load. `cordy plan schema` prints the JSON Schema for agents that generate plans.
+
+## 5. Explicit expectations
+
+Use `--expect '[not-]<kind>:<arg>'` to keep the specification separate from the prompt. It is repeatable, and the grammar is compact enough for an agent to generate:
+
+```bash
+--expect 'text:Resumen del envío'
+--expect 'button:Guardar cotización'
+--expect 'value:Peso=${input.peso}'
+--expect 'not-text:/error|requerido/i'
+--expect 'url:/\/resultado$/'
+```
+
+(The expected texts are Spanish because they are the example app's labels.)
+
+The kinds are `text`, `button`, `button-enabled`, `button-disabled`, `url`, `title`, `value` (`<label>=<m>`), `checked`, `unchecked`, and `count` (`<m>=<n>`). A matcher is a case-insensitive substring, a `/regex/flags`, or contains `${input.<key>}`. Use single quotes so the shell does not expand `$`. Each expectation retries for up to 5 seconds, and negated ones run last. `--expect-visible`, `--expect-button`, and `--expect-url` (exact match) still work as aliases. Explicit expectations are added to the inferred ones; they don't replace local validation.
 
 ## 6. `test` vs. `automation`
 
@@ -156,7 +184,7 @@ test('cotizar-envio', async ({ page }) => {
 - **Failures**: if any action or expectation fails, the file is not modified.
 
 ```bash
-npx cordy "Simula un crédito con el formulario nuevo" \
+npx cordy "Simula un envío con el formulario nuevo" \
   --start-url https://staging.example.test \
   --output ./playwright/flows.spec.ts \
   --test-name cotizar-envio \
@@ -195,7 +223,7 @@ Use `--headed` to debug selectors and navigation. Use `--headless` in CI. Tune `
 --max-steps 12
 ```
 
-Current flows are test flows and stop after the final high-impact click chosen by Jev. Don't run a flow against production without external safeguards.
+High-impact clicks run only with `--approve`; without it they are recorded as `blocked`. Prompt runs stop right after the high-impact click, and plan runs continue with their remaining steps. Don't run a flow against production without external safeguards.
 
 ## 8. Troubleshooting
 

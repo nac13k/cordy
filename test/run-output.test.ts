@@ -22,7 +22,7 @@ describe('managed output preflight', () => {
   const run = (...flags: string[]) =>
     runCordy(
       parseCliArgs([
-        'entra a la seccion cotizador de envios y llena el formulario',
+        'entra a la sección cotizador de envíos y llena el formulario',
         '--input',
         'monto=1',
         '--start-url',
@@ -53,5 +53,43 @@ describe('managed output preflight', () => {
   it('launches the browser when the plan is valid', async () => {
     await expect(run('--test-name', 'login', '--update')).rejects.toThrow(/must not launch/);
     expect(launch).toHaveBeenCalledOnce();
+  });
+
+  it('rejects expectations that reference inputs missing from the inputs file before launch', async () => {
+    const inputs = join(file, '..', 'inputs.json');
+    await writeFile(inputs, JSON.stringify({ monto: '1' }), 'utf8');
+    await expect(
+      runCordy(
+        parseCliArgs([
+          'llena el formulario',
+          '--input',
+          inputs,
+          '--start-url',
+          'https://example.test',
+          '--expect',
+          'text:${input.missing}',
+        ]),
+      ),
+    ).rejects.toThrow(/references input "missing"/);
+    expect(launch).not.toHaveBeenCalled();
+  });
+
+  it('stops before launching the browser when a plan step is compound', async () => {
+    const plan = join(file, '..', 'plan.yaml');
+    // Spanish step on purpose: plan steps may be written in any language.
+    await writeFile(plan, 'version: 1\nsteps:\n  - llena el formulario y da clic en enviar\n');
+    vi.stubEnv('JEV_API_KEY', 'test-only');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () => new Response(JSON.stringify({ answers: { step_0: { choice: 'compound' } } })),
+      ),
+    );
+    await expect(
+      runCordy(parseCliArgs(['--plan', plan, '--start-url', 'https://example.test'])),
+    ).rejects.toThrow(/Plan step 1 .* describes more than one action/);
+    expect(launch).not.toHaveBeenCalled();
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
   });
 });

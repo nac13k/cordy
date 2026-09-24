@@ -12,3 +12,4 @@ export {
 export * from './domain.js';
 export * from './workflow-plan.js';
 export * from './dynamic-inputs.js';
+export * from './expectation-spec.js';
