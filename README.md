@@ -652,7 +652,7 @@ Before publishing a new version:
 The package also exports the main TypeScript API:
 
 ```ts
-import { generateTypeScript, runCordy } from 'cordy';
+import { generateTypeScript, runCordy } from '@nac13k/cordy';
 ```
 
 The `cordy` command is the recommended interface for end users. The programmatic API may change while the package remains in version `0.x`.
