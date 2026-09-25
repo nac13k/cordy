@@ -228,6 +228,8 @@ export class JevClient {
         anchor: 'explicit' | 'quoted' | 'free';
         text?: string;
         keys?: string[];
+        /** Input keys consumed while this step was current. */
+        consumedInStep?: string[];
       };
     } = {},
   ): Promise<PlannedAction> {
@@ -396,6 +398,22 @@ export class JevClient {
         kind: 'needs_review',
         reason: `Control "${element.name}" is not named in the step "${step.text}"`,
       };
+    if (
+      naturalFill &&
+      step?.text &&
+      step.anchor === 'quoted' &&
+      ['fill', 'select', 'check'].includes(action) &&
+      !anchoredIn(element.name, step.text, 'quoted')
+    )
+      return step.consumedInStep?.length
+        ? {
+            kind: 'step_complete',
+            reason: `Field "${element.name}" is not named in the step; ending the step`,
+          }
+        : {
+            kind: 'needs_review',
+            reason: `Field "${element.name}" is not named in the step "${step.text}"`,
+          };
     const locator = {
       strategy: candidate.strategy,
       value: candidate.value,

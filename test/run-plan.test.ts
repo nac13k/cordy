@@ -266,6 +266,68 @@ describe('plan file runs', () => {
       expect(requests()[0].state.task).toBe(prompt);
     }, 60_000);
 
+    // Spanish steps on purpose: they replay a real run against fixture/index.html.
+    const fixtureUrl = new URL('../fixture/index.html', import.meta.url).href;
+
+    it('keeps each quoted fill step on the field it names', async () => {
+      fakeJev(
+        [
+          { action: 'fill', target: 'el_1', input_key: 'name' },
+          { action: 'fill', target: 'el_2', input_key: 'email' },
+          { action: 'fill', target: 'el_2', input_key: 'email' },
+          { action: 'click', target: 'el_3', input_key: 'none' },
+        ],
+        [{ step_0: 'fill', step_1: 'fill', step_2: 'click' }],
+      );
+      const result = await runCordy(
+        parseCliArgs([
+          'Llena "Nombre completo", llena "Correo electrónico", da click en "Crear cuenta"',
+          '--start-url',
+          fixtureUrl,
+          '--input',
+          'name=Ana',
+          '--input',
+          'email=ana@example.test',
+        ]),
+      );
+      expect(kinds(result)).toEqual([
+        ['fill', 'succeeded'],
+        ['step_complete', 'succeeded'],
+        ['fill', 'succeeded'],
+        ['click', 'succeeded'],
+      ]);
+      expect(result.errors).toBeUndefined();
+      expect(result.planSteps).toEqual([
+        expect.objectContaining({ step: 1, status: 'done', keys: ['name'] }),
+        expect.objectContaining({ step: 2, status: 'done', keys: ['email'] }),
+        expect.objectContaining({ step: 3, status: 'done' }),
+      ]);
+    }, 60_000);
+
+    it('stops when a quoted fill step starts on a field it does not name', async () => {
+      fakeJev([{ action: 'fill', target: 'el_1', input_key: 'email' }], [{ step_0: 'fill' }]);
+      const result = await runCordy(
+        parseCliArgs([
+          'llena "Correo electrónico"',
+          '--start-url',
+          fixtureUrl,
+          '--input',
+          'email=ana@example.test',
+        ]),
+      );
+      expect(result.actions).toEqual([
+        {
+          action: {
+            kind: 'needs_review',
+            reason: 'Field "Nombre completo" is not named in the step "llena "Correo electrónico""',
+          },
+          status: 'blocked',
+          error: expect.any(String),
+        },
+      ]);
+      expect(result.planSteps[0]).toMatchObject({ status: 'pending' });
+    }, 60_000);
+
     it('continues after an approved submit until the last step', async () => {
       fakeJev(
         [

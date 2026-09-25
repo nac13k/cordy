@@ -9,7 +9,10 @@ export type PlanStep = {
   kind: PlanStepKind;
   /** Name sent to Jev as the workflow step kind. */
   workflowKind: string;
-  /** How a click/submit target is checked: explicit target, quoted text, or free step text. */
+  /**
+   * How a target is checked: explicit target, quoted text, or free step text. Quoted fill steps
+   * are anchored too; unquoted fill steps are not.
+   */
   anchor: 'explicit' | 'quoted' | 'free';
   /** Natural-language step text, when the step came from one. */
   text?: string;

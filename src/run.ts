@@ -346,7 +346,7 @@ export async function runCordy(options: ParsedOptions, config?: CordyConfig) {
         let action = await jev.nextAction(state, inputs, {
           consumedInputKeys: consumed,
           files,
-          step: planStep,
+          step: { ...planStep, consumedInStep: cursor.consumedInStep },
         });
         if (action.kind === 'step_complete' && cursor.consumedInStep.length === 0)
           action = {

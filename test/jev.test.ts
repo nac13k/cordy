@@ -462,6 +462,69 @@ describe('Jev planner', () => {
         ).kind,
       ).toBe('needs_review');
     });
+
+    // Spanish field names on purpose, matching fixture/index.html.
+    describe('quoted fill steps', () => {
+      const textbox = (id: string, name: string) => ({
+        id,
+        role: 'textbox',
+        name,
+        valueState: 'empty' as const,
+        visible: true,
+        enabled: true,
+        locatorCandidates: [{ strategy: 'getByRole' as const, value: `textbox:${name}` }],
+      });
+      const formState = {
+        ...state,
+        interactiveElements: [
+          textbox('el_1', 'Nombre completo'),
+          textbox('el_2', 'Correo electronico'),
+        ],
+        workflow: { kind: 'fill', allowedActions: ['fill', 'select', 'check'] },
+      };
+      const fill = (
+        target: string,
+        inputKey: string,
+        text: string,
+        consumedInStep: string[] = [],
+        anchor: 'quoted' | 'free' = 'quoted',
+      ) =>
+        new JevClient({
+          apiKey: 'test-only',
+          fetcher: answer({ action: 'fill', target, input_key: inputKey }),
+        }).nextAction(
+          formState,
+          { name: 'x', email: 'y' },
+          { step: { kind: 'fill', anchor, text, consumedInStep } },
+        );
+
+      it('accepts a field named in quotes, ignoring diacritics', async () => {
+        expect(await fill('el_2', 'email', 'llena "Correo electrónico"')).toMatchObject({
+          kind: 'fill',
+          inputKey: 'email',
+        });
+      });
+      it('accepts any of several quoted fields', async () => {
+        const text = 'llena "Nombre completo" y “Correo electrónico”';
+        expect((await fill('el_1', 'name', text)).kind).toBe('fill');
+        expect((await fill('el_2', 'email', text, ['name'])).kind).toBe('fill');
+      });
+      it('ends the step on an unnamed field after a fill', async () => {
+        expect(await fill('el_2', 'email', 'Llena "Nombre completo"', ['name'])).toMatchObject({
+          kind: 'step_complete',
+          reason: expect.stringMatching(/"Correo electronico" is not named in the step/),
+        });
+      });
+      it('asks for review on an unnamed field before any fill', async () => {
+        expect(await fill('el_1', 'name', 'llena "Correo electrónico"')).toEqual({
+          kind: 'needs_review',
+          reason: 'Field "Nombre completo" is not named in the step "llena "Correo electrónico""',
+        });
+      });
+      it('does not anchor unquoted fill steps', async () => {
+        expect((await fill('el_2', 'email', 'llena el formulario', [], 'free')).kind).toBe('fill');
+      });
+    });
   });
 
   describe('incompatible proposals', () => {

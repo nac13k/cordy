@@ -135,7 +135,7 @@ npx @nac13k/cordy plan from-prompt '…'     # print the plan a prompt splits in
 npx @nac13k/cordy --plan plan.yaml --start-url https://example.test --input email=ana@example.com --approve
 ```
 
-Each step is one natural-language instruction in any language, which Jev classifies as `click`, `fill`, `wait`, or `submit` before the browser opens. It can also be an explicit form: `{ click: X }`, `{ submit: X }`, `{ fill: [keys] }`, or `{ wait: load }`. Steps that combine two actions are rejected. Clicked controls must be named in the step text, and quoted names must match exactly. A natural-language `fill` consumes the inputs visible on the current screen, and every input must be used by the end of the plan. `wait` always waits for the page load. `cordy plan schema` prints the JSON Schema for agents that generate plans.
+Each step is one natural-language instruction in any language, which Jev classifies as `click`, `fill`, `wait`, or `submit` before the browser opens. It can also be an explicit form: `{ click: X }`, `{ submit: X }`, `{ fill: [keys] }`, or `{ wait: load }`. Steps that combine two actions are rejected. Clicked controls must be named in the step text, and quoted names must match exactly. A natural-language `fill` consumes the inputs visible on the current screen, and every input must be used by the end of the plan. A `fill` step with quoted names only fills the fields it names, and each quoted name must match the field's label exactly (case and accents aside). `wait` always waits for the page load. `cordy plan schema` prints the JSON Schema for agents that generate plans.
 
 ## 5. Explicit expectations
 

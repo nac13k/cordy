@@ -659,7 +659,7 @@ The prompt (positional or `--prompt-file`) is a list of steps. Cordy splits it l
 2. On inline numbering, when a one-line prompt starts with `1.` or `1)`: `1. Open "Pricing" 2. Fill in the form 3. Click "Buy"`. The numbers must follow in order, so `espera 3. …` is not split.
 3. On commas and semicolons outside double quotes (`"…"` or `“…”`). A comma between digits (`1,5`) does not split. Quote control names that contain a comma: `click "Yes, continue"`.
 
-Dashes inside a line and words such as `and`/`y` never split a step. A prompt without separators is one step. These are equivalent:
+Dashes inside a line and words such as `and`/`y` never split a step. A prompt without separators is one step. A fill step with quoted names, such as `fill "Email"`, only fills the fields it names, and each quoted name must match the field's label exactly (case and accents aside). An unquoted fill step such as `fill in the form` fills every visible field that has a pending input. These are equivalent:
 
 ```bash
 npx @nac13k/cordy 'Open "Shipping quote", fill in the form, click "Simulate"' ...
