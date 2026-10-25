@@ -1,0 +1,6 @@
+schema: omoi/v1
+name: cordy
+repos:
+  - name: nac13k/cordy
+    default_branch: main
+    primary: true
