@@ -1,0 +1,17 @@
+schema: omoi/v1
+milestone: m1-pr-test
+title: Test that a finished task opens its pull request
+acceptance:
+  - id: AC1
+    text: The docs have a short note that explains how to run the tests
+tasks:
+  - id: t1-testing-note
+    title: Add a short note on how to run the tests
+    owns: [docs/testing.md]
+    covers: [AC1]
+    notes: Create docs/testing.md with two or three sentences on running `npm test`. Change nothing else.
+  - id: t2-check-note
+    title: Check the testing note
+    kind: tests
+    depends_on: [t1-testing-note]
+    covers: [AC1]
